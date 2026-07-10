@@ -1,0 +1,28 @@
+[package]
+name = "rust-map-dump"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "rust-map-dump"
+path = "src/main.rs"
+
+[dependencies]
+syn = { version = "2", features = ["full", "extra-traits"] }
+# `span-locations` is proc-macro2's own feature; syn depends on proc-macro2
+# but doesn't turn this feature on for us, so we list proc-macro2 directly
+# just to activate it (Cargo feature unification) -- we don't otherwise
+# add any functionality syn didn't already pull in.
+proc-macro2 = { version = "1", features = ["span-locations"] }
+walkdir = "2"
+sha2 = "0.10"
+
+# serde_json is allowed by the fixture brief but deliberately unused: the
+# output is built by hand (see push_json_string in main.rs) for the same
+# byte-exact-field-order reason CONTRACT.md calls out for headscan-cases —
+# serde_json's Map only preserves insertion order with the non-default
+# "preserve_order" feature, so hand-building sidesteps that entirely.
+
+[profile.release]
+debug = false

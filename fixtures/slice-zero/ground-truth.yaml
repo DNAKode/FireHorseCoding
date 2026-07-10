@@ -1,0 +1,216 @@
+# Slice Zero — ground truth (answer key)
+#
+# Derived from CONTRACT.md §5, which is the normative summary this file
+# expands. Per CONTRACT.md's header, ground-truth edits are escalations,
+# not local fixes: if CONTRACT.md and this file ever disagree, CONTRACT.md
+# wins and this file is the one that's wrong.
+#
+# Rust symbolPaths below are exactly what tools/rust-map-dump emits for
+# rust/ today — every one was checked against the committed
+# maps/rust-dump-base.json (and, for delta impacts, a fresh dump of the
+# relevant tools/apply-delta.ps1 checkout) before being written here.
+# Re-verify against a fresh dump if rust/ changes.
+#
+# C# symbolPaths are the *expected* shape for the not-yet-built csharp/
+# side (CONTRACT.md §2, "a later increment"): illustrative and matching
+# CONTRACT.md §5's own naming, not yet confirmed against a C# provider
+# dump because csharp/ doesn't exist yet.
+
+units:
+  - id: parser-core
+    description: >
+      The header-document parser: line-ending/comment/blank-line handling,
+      continuation assembly, duplicate-key resolution, and the typed-value
+      layer (count/ratio/text) — CONTRACT.md §1.1.
+    rust:
+      symbolPaths:
+        - headscan::parse
+        - headscan::split_lines
+        - headscan::scan_lines
+        - headscan::type_value
+        - headscan::is_blank
+        - headscan::trim_sp_tab
+        - headscan::is_valid_key
+        - headscan::check_len
+        - headscan::is_valid_ratio_literal
+        - headscan::normalize_ratio_literal
+      dataTypes:
+        - headscan::HeaderDoc
+        - headscan::Field
+        - headscan::FieldValue
+        - headscan::ParseError
+        - headscan::ErrorCode
+        - headscan::LineEnding
+    csharp:
+      # Expected shape once csharp/ exists (CONTRACT.md §2); not yet
+      # verified against a provider dump.
+      symbolPaths:
+        - HeadScan.HeaderParser
+        - HeadScan.HeaderParser.Parse(string)
+      note: >
+        the C# lib + HeadScan.Cases console project (CONTRACT.md §2) is a
+        later increment; this unit's C# side is a target, not yet a fact.
+
+correspondences:
+  - kind: implements
+    level: unit
+    unit: parser-core
+    rust: headscan (module; the crate's whole parsing surface, see
+      units.parser-core.rust above)
+    csharp: HeadScan.HeaderParser
+    note: >
+      unit-level correspondence: the Rust headscan crate's parsing surface
+      implements parser-core; HeadScan.HeaderParser is expected to
+      implement the same unit on the C# side.
+
+  - kind: maps-to
+    rust: headscan::parse
+    csharp: HeadScan.HeaderParser.Parse(string)
+    note: the single entry point both sides' case-runner harnesses call
+      (CONTRACT.md §1.3).
+
+  - kind: maps-to
+    rust: headscan::ErrorCode
+    csharp: HeadScan.ErrorCode
+    note: >
+      the closed error-code set — MissingColon, BadKey,
+      DanglingContinuation, BadNumber, RatioOutOfRange, ValueTooLong
+      (CONTRACT.md §1.1) — as an enum/error-code type on each side.
+
+  - kind: adapts
+    rust: headscan::parse
+    csharp: HeadScan.HeaderParser.Parse(string)
+    adaptationKind: adaptation
+    policyLevel: systematic
+    note: >
+      Rust's Result<HeaderDoc, ParseError> (fail-fast via `?` propagation)
+      adapts to a C# result-object pattern (one return value carrying
+      either success fields or an error code/line — see the two shapes in
+      CONTRACT.md §1.2). This is a systematic, policy-level adaptation:
+      every fallible operation on the C# side follows the same pattern,
+      not a one-off translation of this one method.
+
+  - kind: covers
+    unit: parser-core
+    verificationRun:
+      corpus: corpus/cases.jsonl
+      goldens:
+        base: corpus/goldens-base.jsonl
+        d2: corpus/goldens-d2.jsonl
+    note: >
+      the differential VerificationRun over corpus/cases.jsonl — both
+      sides' case-runner harness (CONTRACT.md §1.3) consume the same
+      cases and their canonical result JSON (CONTRACT.md §1.2) is compared
+      byte-for-byte — is the evidence backing every claim and
+      correspondence above.
+
+behaviorClaims:
+  - id: B1
+    statement: "Duplicate keys: first occurrence wins."
+    contractRef: "CONTRACT.md §1.1 rule 6"
+    evidence:
+      rust: headscan::parse
+      golden: duplicate-two
+    status:
+      base: current
+      d1: current
+      d2: stale
+
+  - id: B2
+    statement: "Ratio values within 1e-9 above 1 clamp to 1.0."
+    contractRef: "CONTRACT.md §1.1 rule 8 (-ratio bullet)"
+    evidence:
+      rust: headscan::type_value
+      golden: ratio-clamp-edge
+    status:
+      base: current
+      d1: current
+      d2: current
+
+  - id: B3
+    statement: "Keys are case-sensitive (Key and key are different keys, not duplicates)."
+    contractRef: "CONTRACT.md §1.1 rule 4"
+    evidence:
+      rust: headscan::parse
+      golden: duplicate-three-mixed-case
+    status:
+      base: current
+      d1: current
+      d2: current
+
+deltaImpacts:
+  - delta: d1
+    patch: deltas/d1-benign-refactor.patch
+    description: >
+      benign internal refactor — rename check_len -> check_value_length,
+      reorder private helper functions. No behavior change; goldens
+      identical to base (not separately committed, per CONTRACT.md §4).
+    changedEntitySymbolPaths:
+      # from diffing maps/rust-dump-base.json against a fresh dump of
+      # tools/apply-delta.ps1 -Delta d1's checkout
+      removed: [headscan::check_len]
+      added: [headscan::check_value_length]
+      contentHashChanged: [headscan, headscan::scan_lines]
+      # headscan::scan_lines itself didn't move or change behavior; its
+      # hash changes only because its body text now calls
+      # check_value_length instead of check_len. headscan's own hash
+      # changes because it's the whole-file module span and the file
+      # changed.
+    staleBehaviorClaims: []
+    staleCorrespondences: []
+    note: >
+      exactly the "no behavior claim stale, touched-entity anchors drift
+      only" case from CONTRACT.md §5 — this is the delta that tests that
+      impact analysis does NOT cry wolf over a pure rename/reorder.
+
+  - delta: d2
+    patch: deltas/d2-duplicate-policy.patch
+    description: >
+      duplicate-key policy changes first-wins -> last-wins (CONTRACT.md
+      §1.1 rule 6); warnings.duplicates keeps counting every occurrence
+      past the first, unchanged in meaning. The field's reported `line`
+      stays pinned to the key's *first* occurrence (CONTRACT.md §1.2) —
+      only which occurrence's value survives changes.
+    goldens:
+      base: corpus/goldens-base.jsonl
+      d2: corpus/goldens-d2.jsonl
+      diffLimitedTo: [duplicate-two, duplicate-three-mixed-case, first-wins-vs-value-order]
+      note: >
+        exactly the corpus cases with warnings.duplicates > 0 in
+        goldens-base.jsonl differ in goldens-d2.jsonl; every other case is
+        byte-identical between the two golden files.
+    changedEntitySymbolPaths:
+      # from diffing maps/rust-dump-base.json against
+      # maps/rust-dump-d2.json
+      removed: [headscan::tests::duplicate_keys_first_wins_and_counted]
+      added: [headscan::tests::duplicate_keys_last_wins_and_counted]
+      contentHashChanged: [headscan, headscan::parse, headscan::tests]
+    staleBehaviorClaims: [B1]
+    unaffectedBehaviorClaims: [B2, B3]
+    staleCorrespondences:
+      - kind: maps-to
+        rust: headscan::parse
+        csharp: HeadScan.HeaderParser.Parse(string)
+        reason: >
+          the mapped function's duplicate-resolution behavior changed
+          (first-wins -> last-wins); a correspondence recorded against the
+          base behavior is stale until re-verified against d2.
+      - kind: covers
+        unit: parser-core
+        reason: >
+          corpus/goldens-d2.jsonl differs from corpus/goldens-base.jsonl
+          for exactly the duplicate-bearing cases (see goldens above); a
+          VerificationRun's results recorded at base are stale evidence
+          for delta d2 and must be re-run against goldens-d2.jsonl.
+
+  - delta: d3
+    patch: deltas/d3-new-output-field.patch
+    description: >
+      reserved (CONTRACT.md §4): adds "keyCount": N to the success JSON
+      shape (a shape change, not a behavior change to existing fields).
+      The patch exists and applies cleanly from a fresh checkout via
+      tools/apply-delta.ps1 -Delta d3, and its checkout's own cargo tests
+      pass, but this delta is not exercised this increment — no
+      goldens-d3.jsonl, no maps/rust-dump-d3.json, and (per CONTRACT.md
+      §5, which only calls out d1 and d2 impacts) no further ground-truth
+      impact entry.

@@ -1,0 +1,100 @@
+diff --git a/rust-base/src/lib.rs b/rust-d1/src/lib.rs
+index 132365a..356459a 100644
+--- a/rust-base/src/lib.rs
++++ b/rust-d1/src/lib.rs
+@@ -213,37 +213,6 @@ fn split_lines(text: &str) -> (Vec<&str>, LineEnding) {
+     (lines, line_ending)
+ }
+ 
+-/// A line is blank if it is empty or consists only of spaces/tabs (rule 3).
+-fn is_blank(line: &str) -> bool {
+-    line.chars().all(|c| c == ' ' || c == '\t')
+-}
+-
+-/// Trim leading/trailing spaces and tabs only (rule 4/5 — not general
+-/// Unicode whitespace).
+-fn trim_sp_tab(s: &str) -> &str {
+-    s.trim_matches(|c| c == ' ' || c == '\t')
+-}
+-
+-/// `[A-Za-z][A-Za-z0-9-]*` (rule 4), case-sensitive.
+-fn is_valid_key(key: &str) -> bool {
+-    let mut chars = key.chars();
+-    match chars.next() {
+-        Some(c) if c.is_ascii_alphabetic() => {}
+-        _ => return false,
+-    }
+-    chars.all(|c| c.is_ascii_alphanumeric() || c == '-')
+-}
+-
+-fn check_len(value: &str, line_no: usize) -> Result<(), ParseError> {
+-    if value.chars().count() > MAX_VALUE_LEN {
+-        return Err(ParseError {
+-            code: ErrorCode::ValueTooLong,
+-            line: line_no,
+-        });
+-    }
+-    Ok(())
+-}
+-
+ /// Phase 1: single top-to-bottom scan producing raw occurrences (rules
+ /// 2-5, 9-10 for structural errors).
+ fn scan_lines(lines: &[&str]) -> Result<Vec<RawOccurrence>, ParseError> {
+@@ -290,7 +259,7 @@ fn scan_lines(lines: &[&str]) -> Result<Vec<RawOccurrence>, ParseError> {
+                     new_value.push_str(&occ.value);
+                     new_value.push(' ');
+                     new_value.push_str(cont_text);
+-                    check_len(&new_value, line_no)?;
++                    check_value_length(&new_value, line_no)?;
+                     occurrences[field_idx].value = new_value;
+                 }
+             }
+@@ -316,7 +285,7 @@ fn scan_lines(lines: &[&str]) -> Result<Vec<RawOccurrence>, ParseError> {
+         }
+         let value_raw = &line[colon_idx + 1..];
+         let value = trim_sp_tab(value_raw).to_string();
+-        check_len(&value, line_no)?;
++        check_value_length(&value, line_no)?;
+ 
+         occurrences.push(RawOccurrence {
+             key: key.to_string(),
+@@ -329,6 +298,39 @@ fn scan_lines(lines: &[&str]) -> Result<Vec<RawOccurrence>, ParseError> {
+     Ok(occurrences)
+ }
+ 
++/// A line is blank if it is empty or consists only of spaces/tabs (rule 3).
++fn is_blank(line: &str) -> bool {
++    line.chars().all(|c| c == ' ' || c == '\t')
++}
++
++/// Trim leading/trailing spaces and tabs only (rule 4/5 — not general
++/// Unicode whitespace).
++fn trim_sp_tab(s: &str) -> &str {
++    s.trim_matches(|c| c == ' ' || c == '\t')
++}
++
++/// `[A-Za-z][A-Za-z0-9-]*` (rule 4), case-sensitive.
++fn is_valid_key(key: &str) -> bool {
++    let mut chars = key.chars();
++    match chars.next() {
++        Some(c) if c.is_ascii_alphabetic() => {}
++        _ => return false,
++    }
++    chars.all(|c| c.is_ascii_alphanumeric() || c == '-')
++}
++
++/// Renamed from `check_len` in a benign internal refactor (delta d1) — no
++/// behavior change.
++fn check_value_length(value: &str, line_no: usize) -> Result<(), ParseError> {
++    if value.chars().count() > MAX_VALUE_LEN {
++        return Err(ParseError {
++            code: ErrorCode::ValueTooLong,
++            line: line_no,
++        });
++    }
++    Ok(())
++}
++
+ /// Phase 2 per-field typing (rule 8).
+ fn type_value(key: &str, raw_value: &str, line: usize) -> Result<FieldValue, ParseError> {
+     if key.ends_with("-count") {

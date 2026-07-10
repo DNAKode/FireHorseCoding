@@ -1,0 +1,56 @@
+{
+  "provider": "rust-syn@0.1.0",
+  "root": "fixtures/slice-zero/rust",
+  "entities": [
+    {
+      "kind": "module",
+      "name": "headscan",
+      "symbolPath": "headscan",
+      "file": "src/lib.rs",
+      "startLine": 1,
+      "endLine": 60,
+      "contentHash": "8253675aa9e3a708c5ee490141ae3defb76d7a159a7b043b968ecd2541a85255",
+      "parentSymbolPath": null
+    },
+    {
+      "kind": "struct",
+      "name": "HeaderParser",
+      "symbolPath": "headscan::HeaderParser",
+      "file": "src/lib.rs",
+      "startLine": 3,
+      "endLine": 6,
+      "contentHash": "7c7199bcb42f0682acf5490fa493acf8edcd148740d0796a9d09cc2d3dd8258e",
+      "parentSymbolPath": "headscan"
+    },
+    {
+      "kind": "fn",
+      "name": "parse",
+      "symbolPath": "headscan::parse",
+      "file": "src/lib.rs",
+      "startLine": 8,
+      "endLine": 40,
+      "contentHash": "19e77cb3c339a857e354630531d3314d7807a61edb0ff55fd9f2071247dee8d3",
+      "parentSymbolPath": "headscan"
+    },
+    {
+      "kind": "enum",
+      "name": "ParseErrorCode",
+      "symbolPath": "headscan::ParseErrorCode",
+      "file": "src/lib.rs",
+      "startLine": 42,
+      "endLine": 49,
+      "contentHash": "ab828cd28e4c13f07c990c9507a3db288055bfb429e1f9b5fc5804d4d02159b0",
+      "parentSymbolPath": "headscan"
+    },
+    {
+      "kind": "variant",
+      "name": "MissingColon",
+      "symbolPath": "headscan::ParseErrorCode::MissingColon",
+      "file": "src/lib.rs",
+      "startLine": 43,
+      "endLine": 43,
+      "contentHash": "10d57317a049525312c2a5711fc164c6c12e9954c3328d2f7ffbbeb02a83165e",
+      "parentSymbolPath": "headscan::ParseErrorCode"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# The repo-root .gitignore excludes any directory literally named "bin/"
+# (a .NET build-output convention used elsewhere in this monorepo), which
+# would otherwise also swallow rust/src/bin/ — the idiomatic Cargo layout
+# for the headscan-cases binary target (CONTRACT.md §1.3). Un-ignore it
+# here, scoped to this fixture only.
+!/rust/src/bin/
+!/rust/src/bin/**
+
+# Ephemeral checkout scratch space for tools/apply-delta.ps1
+# (fixtures/slice-zero/workspace/checkouts/rust-<delta>/, regenerated on
+# demand, never committed). Already covered by the repo-root .gitignore's
+# "fixtures/slice-zero/workspace/" entry; restated here so this directory's
+# intent is clear from inside fixtures/slice-zero/ alone.
+/workspace/

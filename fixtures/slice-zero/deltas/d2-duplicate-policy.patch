@@ -1,0 +1,65 @@
+diff --git a/rust-base/src/lib.rs b/rust-d2/src/lib.rs
+index 132365a..776b5b3 100644
+--- a/rust-base/src/lib.rs
++++ b/rust-d2/src/lib.rs
+@@ -128,10 +128,10 @@ struct RawOccurrence {
+ ///     (`MissingColon`, `BadKey`, `DanglingContinuation`, `ValueTooLong`),
+ ///     fail-fast, in line order. This produces a list of raw occurrences
+ ///     (duplicates and all).
+-///  2. Duplicate resolution (first-wins, rule 6) over those occurrences,
+-///     followed by typed-value validation (`BadNumber`, `RatioOutOfRange`)
+-///     "in field order" per rule 8 — i.e. over the deduplicated field list,
+-///     in first-appearance order.
++///  2. Duplicate resolution (last-wins, rule 6 — CONTRACT delta d2) over
++///     those occurrences, followed by typed-value validation (`BadNumber`,
++///     `RatioOutOfRange`) "in field order" per rule 8 — i.e. over the
++///     deduplicated field list, in first-appearance order.
+ pub fn parse(input: &[u8]) -> Result<HeaderDoc, ParseError> {
+     let text = String::from_utf8_lossy(input);
+     let (lines, line_ending) = split_lines(&text);
+@@ -139,15 +139,21 @@ pub fn parse(input: &[u8]) -> Result<HeaderDoc, ParseError> {
+     let raw_occurrences = scan_lines(&lines)?;
+ 
+     let mut fields: Vec<Field> = Vec::with_capacity(raw_occurrences.len());
+-    let mut seen: HashMap<&str, ()> = HashMap::new();
++    // CONTRACT delta d2: duplicate-key policy is now last-wins (was
++    // first-wins). We still track each key's *first* position so the
++    // field's reported line and its place in the first-appearance
++    // ordering (rule 7) are unchanged — only the winning raw value moves
++    // to the most recent occurrence.
++    let mut index_of: HashMap<&str, usize> = HashMap::new();
+     let mut duplicates: u32 = 0;
+ 
+     for occ in &raw_occurrences {
+-        if seen.contains_key(occ.key.as_str()) {
++        if let Some(&idx) = index_of.get(occ.key.as_str()) {
+             duplicates += 1;
++            fields[idx].value = FieldValue::Text(occ.value.clone());
+             continue;
+         }
+-        seen.insert(occ.key.as_str(), ());
++        index_of.insert(occ.key.as_str(), fields.len());
+         fields.push(Field {
+             key: occ.key.clone(),
+             line: occ.line,
+@@ -631,13 +637,17 @@ mod tests {
+         }
+     }
+ 
+-    // Rule 6: duplicates, first-wins.
++    // Rule 6 (delta d2): duplicates, last-wins.
+     #[test]
+-    fn duplicate_keys_first_wins_and_counted() {
++    fn duplicate_keys_last_wins_and_counted() {
+         let doc = ok("a: first\na: second\na: third\n");
+         assert_eq!(doc.fields.len(), 1);
++        // Last-wins (delta d2): the surviving value is the most recent
++        // occurrence's, but the field still reports its first-occurrence
++        // line (line 1), per CONTRACT §1.2.
++        assert_eq!(doc.fields[0].line, 1);
+         match &doc.fields[0].value {
+-            FieldValue::Text(s) => assert_eq!(s, "first"),
++            FieldValue::Text(s) => assert_eq!(s, "third"),
+             _ => panic!("expected text"),
+         }
+         assert_eq!(doc.duplicates, 2);

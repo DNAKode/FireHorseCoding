@@ -1,0 +1,32 @@
+diff --git a/rust-base/src/lib.rs b/rust-d3/src/lib.rs
+index 132365a..58a43a6 100644
+--- a/rust-base/src/lib.rs
++++ b/rust-d3/src/lib.rs
+@@ -470,7 +470,9 @@ fn doc_to_json(doc: &HeaderDoc) -> String {
+         }
+         out.push('}');
+     }
+-    out.push_str("],\"lineEnding\":\"");
++    out.push_str("],\"keyCount\":");
++    out.push_str(&doc.fields.len().to_string());
++    out.push_str(",\"lineEnding\":\"");
+     out.push_str(doc.line_ending.as_str());
+     out.push_str("\",\"warnings\":{\"duplicates\":");
+     out.push_str(&doc.duplicates.to_string());
+@@ -750,7 +752,7 @@ mod tests {
+         assert_eq!(e.line, 1);
+     }
+ 
+-    // Canonical JSON shape.
++    // Canonical JSON shape (delta d3: adds "keyCount").
+     #[test]
+     fn canonical_json_success_shape() {
+         let result = parse(b"a: hello\nn-count: 3\nr-ratio: 0.5\n");
+@@ -760,6 +762,7 @@ mod tests {
+             "{\"fields\":[{\"key\":\"a\",\"kind\":\"text\",\"line\":1,\"value\":\"hello\"},\
+              {\"key\":\"n-count\",\"kind\":\"count\",\"line\":2,\"value\":3},\
+              {\"key\":\"r-ratio\",\"kind\":\"ratio\",\"line\":3,\"valueNanos\":500000000}],\
++             \"keyCount\":3,\
+              \"lineEnding\":\"lf\",\"warnings\":{\"duplicates\":0}}"
+         );
+     }
