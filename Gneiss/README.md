@@ -16,7 +16,7 @@ The name is deliberate: gneiss is a metamorphic bedrock — formed under pressur
 
 ## Status
 
-**Charter established; design and pre-implementation phase.** [CHARTER.md](CHARTER.md) is the governing statement of purpose, conceptual architecture, invariants, scope, and evolution discipline. The seed document is [KNOWLEDGE_MODEL_BRAINSTORM.md](KNOWLEDGE_MODEL_BRAINSTORM.md). The `kb/` directory develops that seed into an idea-and-knowledge-base: surveys of prior art, a proposed minimal kernel, scoping onions, prototype designs, and a ranked agenda of decisions to make.
+**Charter established; design and pre-implementation phase.** [CHARTER.md](CHARTER.md) is the governing statement of purpose, conceptual architecture, invariants, scope, and evolution discipline. [ROADMAP.md](ROADMAP.md) is the first development roadmap (2026-07-10): declared envelope, v0 architecture, epics, and gated milestones to "usable or falsified." The critical review behind both is [CHARTER-REVIEW.md](../CHARTER-REVIEW.md). The seed document is [KNOWLEDGE_MODEL_BRAINSTORM.md](KNOWLEDGE_MODEL_BRAINSTORM.md). The `kb/` directory develops that seed into an idea-and-knowledge-base: surveys of prior art, a proposed minimal kernel, scoping onions, prototype designs, and a ranked agenda of decisions to make.
 
 The charter commits the design center, not a technology stack or final physical schema. The wider corpus remains evidence and argument that can be challenged as implementation teaches us more.
 
