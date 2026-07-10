@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/Gneiss/" />
+  <Folder Name="/Gneiss/src/">
+    <Project Path="Gneiss/src/Gneiss.Cell/Gneiss.Cell.csproj" />
+  </Folder>
+  <Folder Name="/Gneiss/tests/">
+    <Project Path="Gneiss/tests/Gneiss.Cell.Tests/Gneiss.Cell.Tests.csproj" />
+  </Folder>
+  <Folder Name="/KodePorter/" />
+  <Folder Name="/KodePorter/src/">
+    <Project Path="KodePorter/src/KodePorter.Cli/KodePorter.Cli.csproj" />
+    <Project Path="KodePorter/src/KodePorter.Core/KodePorter.Core.csproj" />
+  </Folder>
+  <Folder Name="/KodePorter/tests/">
+    <Project Path="KodePorter/tests/KodePorter.Core.Tests/KodePorter.Core.Tests.csproj" />
+  </Folder>
+</Solution>

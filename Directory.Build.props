@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <!-- Determinism discipline (Gneiss D-R3): invariant culture globally; no
+         binary floating point on comparison/decision paths (enforced by review,
+         not compiler). -->
+  </PropertyGroup>
+</Project>

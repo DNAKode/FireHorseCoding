@@ -1,0 +1,10 @@
+bin/
+obj/
+target/
+*.user
+.vs/
+*.db
+*.db-shm
+*.db-wal
+fixtures/slice-zero/workspace/
+TestResults/
