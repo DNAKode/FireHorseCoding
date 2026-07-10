@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\KodePorter.Core\KodePorter.Core.csproj" />
+    <ProjectReference Include="..\..\src\KodePorter.Cli\KodePorter.Cli.csproj" />
   </ItemGroup>
 
   <ItemGroup>

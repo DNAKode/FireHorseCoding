@@ -187,6 +187,18 @@ deltaImpacts:
       contentHashChanged: [headscan, headscan::parse, headscan::tests]
     staleBehaviorClaims: [B1]
     unaffectedBehaviorClaims: [B2, B3]
+    # Two measurement levels, deliberately distinguished (added 2026-07-10 during
+    # M1 integration, as a documented ground-truth amendment per CONTRACT.md's
+    # escalation rule — this ADDS the anchor-drift level, it does not change the
+    # semantic truth above):
+    #  - semantic impact (the rows above): only B1's stated behavior changed.
+    #  - anchor-drift impact (KodePorter v0's staleness signal, K-D11 conservative
+    #    over-approximation): B1 AND B3 both anchor their evidence to
+    #    headscan::parse, whose content hash changes in d2 — so v0 marks BOTH
+    #    stale. B2 (anchored to headscan::type_value) stays clean.
+    # The M1 notebook reports cone precision = |semantic| / |anchor-drift| for
+    # behavior claims; over-approximation is expected and honest, never hidden.
+    anchorDriftStaleBehaviorClaims: [B1, B3]
     staleCorrespondences:
       - kind: maps-to
         rust: headscan::parse

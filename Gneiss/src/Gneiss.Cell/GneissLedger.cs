@@ -381,23 +381,43 @@ public sealed class GneissLedger : IDisposable
             consumed.Add(r.Aid);
         }
 
-        // Decisions targeting any matched row (by aid or ckey) — queried directly against `dec`,
-        // since AssrtRow does not carry tgt_aid/tgt_ckey.
-        foreach (var r in matchedRegular)
+        // Close the consumed set transitively over the decision graph (kb defect-2 fix): starting from
+        // the matched assertions' aids/ckeys, repeatedly add every visible decision whose tgt_aid or
+        // tgt_ckey is in the frontier -- including decisions targeting decisions, via the decision
+        // assertions' own aid/ckey -- to fixpoint. Without this, a decision-on-decision chain (e.g. D2
+        // retracts D1 which retracts A) only ever records the one-hop decision (D1) as consumed, so a
+        // later decision that flips D1's effectiveness by defeating D2 (not D1 itself) is invisible to
+        // CheckStale.
+        var allDecisions = LoadAllDecisions(outcome.Ctx.DataCut);
+        var frontierAids = new HashSet<string>(matchedRegular.Select(r => r.Aid), StringComparer.Ordinal);
+        var frontierCKeys = new HashSet<string>(matchedRegular.Select(r => r.CKey), StringComparer.Ordinal);
+        var consumedDecisionAids = new HashSet<string>(StringComparer.Ordinal);
+
+        bool changed = true;
+        while (changed)
         {
-            using var cmd = _conn.CreateCommand();
-            cmd.CommandText = """
-                SELECT d.aid FROM dec d JOIN assrt a ON a.aid = d.aid
-                WHERE a.tx <= $cut AND (d.tgt_aid = $aid OR d.tgt_ckey = $ckey)
-                """;
-            cmd.Parameters.AddWithValue("$cut", outcome.Ctx.DataCut);
-            cmd.Parameters.AddWithValue("$aid", r.Aid);
-            cmd.Parameters.AddWithValue("$ckey", r.CKey);
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            changed = false;
+            foreach (var d in allDecisions)
             {
-                consumed.Add(reader.GetString(0));
+                if (consumedDecisionAids.Contains(d.Aid))
+                {
+                    continue;
+                }
+                bool hits = (d.TgtAid is not null && frontierAids.Contains(d.TgtAid)) ||
+                            (d.TgtCKey is not null && frontierCKeys.Contains(d.TgtCKey));
+                if (hits)
+                {
+                    consumedDecisionAids.Add(d.Aid);
+                    frontierAids.Add(d.Aid);
+                    frontierCKeys.Add(d.CKey);
+                    changed = true;
+                }
             }
+        }
+
+        foreach (var aid in consumedDecisionAids)
+        {
+            consumed.Add(aid);
         }
 
         var predCache = new Dictionary<string, ResolvedPredicate>();
@@ -411,6 +431,29 @@ public sealed class GneissLedger : IDisposable
         }
 
         return consumed.OrderBy(a => a, StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>All decisions visible at dataCut, with their own ckey (for closing the consumed set
+    /// transitively over decisions-targeting-decisions; see <see cref="ComputeConsumedAids"/>).</summary>
+    private List<(string Aid, string CKey, string? TgtAid, string? TgtCKey)> LoadAllDecisions(long dataCut)
+    {
+        var result = new List<(string, string, string?, string?)>();
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT d.aid, a.ckey, d.tgt_aid, d.tgt_ckey FROM dec d JOIN assrt a ON a.aid = d.aid
+            WHERE a.tx <= $cut
+            """;
+        cmd.Parameters.AddWithValue("$cut", dataCut);
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add((
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3)));
+        }
+        return result;
     }
 
     // ---- Why ----------------------------------------------------------------------------------

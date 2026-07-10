@@ -382,69 +382,241 @@ internal static class BeliefFold
         return members.GroupBy(m => Find(m.Aid)).Select(g => g.ToList()).ToList();
     }
 
-    private static void ResolveConflictGroup(
-        List<AssrtRow> component,
-        ResolvedPredicate predicate,
-        Dictionary<string, EntryResult> entries,
-        List<ContestedGroup> contestedGroups)
+    /// <summary>Local 3+1-valued label used while computing grounded pairwise conflict resolution.</summary>
+    private enum LocalStatus
     {
-        var remaining = component.ToList();
-        var eliminatedAtRung = new Dictionary<string, int>();
+        Undecided,
+        Accepted,
+        Defeated,
+        Contested,
+    }
 
+    private readonly record struct PairContest(string WinnerAid, string LoserAid, int Rung);
+
+    /// <summary>
+    /// Contests exactly two candidates through the strainer rungs (2..StopRung), reusing <see
+    /// cref="ApplyRung"/> at each rung. Returns the (winner, loser, decidingRung) if the pair resolves
+    /// to a unique winner at or before StopRung; returns null ("unresolved") if the pair is still tied
+    /// once StopRung is reached -- per kb defect-1 fix, an unresolved pair is NOT an attack either way.
+    /// </summary>
+    private static PairContest? ContestPair(AssrtRow a, AssrtRow b, ResolvedPredicate predicate)
+    {
+        var remaining = new List<AssrtRow> { a, b };
         int rung = 2;
         while (remaining.Count > 1 && rung <= predicate.StopRung)
         {
             var survivors = ApplyRung(rung, remaining, predicate);
             if (survivors.Count < remaining.Count)
             {
-                foreach (var lost in remaining.Where(m => !survivors.Contains(m)))
-                {
-                    eliminatedAtRung[lost.Aid] = rung;
-                }
-                remaining = survivors;
+                var winner = survivors[0];
+                var loser = remaining.First(m => m.Aid != winner.Aid);
+                return new PairContest(winner.Aid, loser.Aid, rung);
             }
             rung++;
         }
+        return null;
+    }
 
-        if (remaining.Count == 1)
+    /// <summary>
+    /// Grounded pairwise conflict resolution (kb defect-1 fix): candidates are grouped into connected
+    /// components by pairwise conflict edges (overlap + incompatible), same as before -- but each edge
+    /// is now contested INDEPENDENTLY through the strainer (<see cref="ContestPair"/>), rather than the
+    /// whole component being run through the strainer together as one N-way contest (the transitive-
+    /// defeat bug: a component can be connected through a chain of edges even though some members never
+    /// pairwise-conflict with each other).
+    ///
+    /// A pairwise contest either resolves into a directed attack (winner -> loser, at the deciding
+    /// rung) or is left unresolved (StopRung reached without narrowing to one). Grounded labeling is
+    /// then computed over the attack graph, PLUS unresolved edges block acceptance of either endpoint
+    /// until the other is defeated by someone else -- folding CONTRACT step 6's "step 3 fixpoint" and
+    /// "step 4 post-processing" into one synchronous per-pass recomputation (from the PREVIOUS pass's
+    /// snapshot only, so results are order-independent and deterministic) is what makes this sound: it
+    /// guarantees every recorded DefeatedBy attacker is ACCEPTED in that same converged snapshot (never
+    /// a node that later gets pulled into Contested by its own unresolved rivalry), because at a
+    /// fixpoint a node's classification and its inputs' classifications are the same snapshot. Bounded
+    /// to component.Count (+2 margin) passes, per CONTRACT step 6's "terminates in <= n passes".
+    /// Anything still Undecided when the loop stops is a genuine attack cycle (StoppedAtRung 6); nodes
+    /// pulled into Contested via a still-live unresolved edge report the predicate's own StopRung.
+    /// </summary>
+    private static void ResolveConflictGroup(
+        List<AssrtRow> component,
+        ResolvedPredicate predicate,
+        Dictionary<string, EntryResult> entries,
+        List<ContestedGroup> contestedGroups)
+    {
+        var byAid = component.ToDictionary(m => m.Aid);
+        var attacks = new Dictionary<string, List<(string AttackerAid, int Rung)>>(StringComparer.Ordinal);
+        var unresolvedPartners = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var unresolvedEdges = new List<(string A, string B)>();
+        var attackEdges = new List<(string From, string To)>();
+
+        foreach (var m in component)
         {
-            var winner = remaining[0];
-            foreach (var m in component)
+            attacks[m.Aid] = new List<(string, int)>();
+            unresolvedPartners[m.Aid] = new List<string>();
+        }
+
+        for (int i = 0; i < component.Count; i++)
+        {
+            for (int j = i + 1; j < component.Count; j++)
             {
-                if (m.Aid == winner.Aid)
+                var a = component[i];
+                var b = component[j];
+                if (!Comparators.IntervalsOverlap(a, b) || !Comparators.Incompatible(predicate, a, b))
                 {
                     continue;
                 }
-                var r = eliminatedAtRung.TryGetValue(m.Aid, out var atRung) ? atRung : predicate.StopRung;
-                entries[m.Aid] = new EntryResult(EntryStatus.Defeated, winner.Aid, $"conflict:rung{r}", entries[m.Aid].AutoAdmitted);
-            }
-            // winner stays Accepted (already set).
-        }
-        else
-        {
-            // StopRung reached without a unique winner: the surviving tied subset is Contested;
-            // earlier-eliminated members of the same original group are Defeated.
-            var groupCKey = remaining.Select(m => m.CKey).Distinct().Count() == 1
-                ? remaining[0].CKey
-                : remaining.OrderBy(m => m.Aid, StringComparer.Ordinal).First().CKey; // DIVERGENCE: heterogeneous-ckey groups report a representative ckey (v0 simplification; not exercised by required tests).
 
-            var contested = new ContestedGroup(
-                groupCKey,
-                remaining.Select(m => m.Aid).OrderBy(a => a, StringComparer.Ordinal).ToList(),
-                predicate.StopRung);
-            contestedGroups.Add(contested);
-
-            foreach (var m in remaining)
-            {
-                entries[m.Aid] = new EntryResult(EntryStatus.Contested, null, null, entries[m.Aid].AutoAdmitted);
-            }
-            foreach (var m in component)
-            {
-                if (eliminatedAtRung.TryGetValue(m.Aid, out var atRung))
+                var contest = ContestPair(a, b, predicate);
+                if (contest is { } r)
                 {
-                    entries[m.Aid] = new EntryResult(EntryStatus.Defeated, null, $"conflict:rung{atRung}", entries[m.Aid].AutoAdmitted);
+                    attacks[r.LoserAid].Add((r.WinnerAid, r.Rung));
+                    attackEdges.Add((r.WinnerAid, r.LoserAid));
+                }
+                else
+                {
+                    unresolvedPartners[a.Aid].Add(b.Aid);
+                    unresolvedPartners[b.Aid].Add(a.Aid);
+                    unresolvedEdges.Add((a.Aid, b.Aid));
                 }
             }
+        }
+
+        var status = component.ToDictionary(m => m.Aid, _ => LocalStatus.Undecided, StringComparer.Ordinal);
+        var defeaterAid = new Dictionary<string, string>(StringComparer.Ordinal);
+        var defeaterRung = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        int passes = component.Count + 2;
+        for (int pass = 0; pass < passes; pass++)
+        {
+            var prev = new Dictionary<string, LocalStatus>(status, StringComparer.Ordinal);
+            bool changed = false;
+
+            foreach (var m in component)
+            {
+                var attackers = attacks[m.Aid];
+                var acceptedAttackers = attackers.Where(x => prev[x.AttackerAid] == LocalStatus.Accepted).ToList();
+
+                LocalStatus next;
+                if (acceptedAttackers.Count > 0)
+                {
+                    var winner = acceptedAttackers
+                        .OrderByDescending(x => byAid[x.AttackerAid].Tx)
+                        .ThenByDescending(x => x.AttackerAid, StringComparer.Ordinal)
+                        .First();
+                    next = LocalStatus.Defeated;
+                    defeaterAid[m.Aid] = winner.AttackerAid;
+                    defeaterRung[m.Aid] = winner.Rung;
+                }
+                else if (attackers.All(x => prev[x.AttackerAid] == LocalStatus.Defeated))
+                {
+                    var blocked = unresolvedPartners[m.Aid].Any(p => prev[p] != LocalStatus.Defeated);
+                    next = blocked ? LocalStatus.Contested : LocalStatus.Accepted;
+                }
+                else
+                {
+                    next = LocalStatus.Undecided;
+                }
+
+                if (next != status[m.Aid])
+                {
+                    changed = true;
+                }
+                status[m.Aid] = next;
+            }
+
+            if (!changed)
+            {
+                break;
+            }
+        }
+
+        // Anything still Undecided after the fixpoint is a genuine attack cycle.
+        var cycleNodes = component.Where(m => status[m.Aid] == LocalStatus.Undecided).Select(m => m.Aid).ToHashSet(StringComparer.Ordinal);
+        foreach (var aid in cycleNodes)
+        {
+            status[aid] = LocalStatus.Contested;
+        }
+
+        foreach (var m in component)
+        {
+            switch (status[m.Aid])
+            {
+                case LocalStatus.Defeated:
+                    entries[m.Aid] = new EntryResult(EntryStatus.Defeated, defeaterAid[m.Aid], $"conflict:rung{defeaterRung[m.Aid]}", entries[m.Aid].AutoAdmitted);
+                    break;
+                case LocalStatus.Contested:
+                    entries[m.Aid] = new EntryResult(EntryStatus.Contested, null, null, entries[m.Aid].AutoAdmitted);
+                    break;
+                case LocalStatus.Accepted:
+                    // already tentatively Accepted from step 4/5; nothing to change.
+                    break;
+            }
+        }
+
+        // Group the Contested nodes into ContestedGroup outputs by connectivity: unresolved edges and
+        // attack edges between two nodes that both ended Contested cover both the "unresolved pair" and
+        // "attack cycle" cases from CONTRACT.md step 6.
+        var contestedSet = component.Where(m => status[m.Aid] == LocalStatus.Contested).Select(m => m.Aid).ToHashSet(StringComparer.Ordinal);
+        if (contestedSet.Count == 0)
+        {
+            return;
+        }
+
+        var parent = contestedSet.ToDictionary(a => a, a => a, StringComparer.Ordinal);
+        string Find(string x)
+        {
+            while (parent[x] != x)
+            {
+                parent[x] = parent[parent[x]];
+                x = parent[x];
+            }
+            return x;
+        }
+        void Union(string x, string y)
+        {
+            var rx = Find(x);
+            var ry = Find(y);
+            if (rx != ry)
+            {
+                parent[rx] = ry;
+            }
+        }
+
+        foreach (var (a, b) in unresolvedEdges)
+        {
+            if (contestedSet.Contains(a) && contestedSet.Contains(b))
+            {
+                Union(a, b);
+            }
+        }
+        foreach (var (from, to) in attackEdges)
+        {
+            if (contestedSet.Contains(from) && contestedSet.Contains(to))
+            {
+                Union(from, to);
+            }
+        }
+
+        foreach (var groupAids in contestedSet.GroupBy(Find))
+        {
+            var members = groupAids.OrderBy(a => a, StringComparer.Ordinal).ToList();
+            var memberSet = new HashSet<string>(members, StringComparer.Ordinal);
+            // A group's indeterminacy is attributed to the predicate's own StopRung when at least one
+            // of its members is directly tied to another (a genuine unresolved pairwise contest); a
+            // group held together ONLY through resolved attack edges (no unresolved pair inside it) can
+            // only be indeterminate because of a genuine attack cycle, per CONTRACT.md step 6 ("6 for
+            // cycles"). This also correctly covers a node whose sole issue is depending on a neighbor
+            // that is itself part of an unresolved pair (e.g. defect-1 test (c)'s third chain node): it
+            // shares a group with that unresolved pair, so the group reports the predicate's StopRung.
+            var stoppedAtRung = unresolvedEdges.Any(e => memberSet.Contains(e.A) && memberSet.Contains(e.B))
+                ? predicate.StopRung
+                : 6;
+            var groupCKey = members.Select(a => byAid[a].CKey).Distinct().Count() == 1
+                ? byAid[members[0]].CKey
+                : byAid[members.OrderBy(a => a, StringComparer.Ordinal).First()].CKey; // DIVERGENCE: heterogeneous-ckey groups report a representative ckey (v0 simplification; not exercised by required tests).
+
+            contestedGroups.Add(new ContestedGroup(groupCKey, members, stoppedAtRung));
         }
     }
 

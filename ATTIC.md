@@ -17,3 +17,14 @@ promotion trigger. Reviewed at every gate.
 | KodePorter nouns demoted by K-A1 (SemanticUnit, Capability, BehavioralContract-as-object, TransformationRule, CompatibilityBridge, Risk, AgentRun, Milestone/AcceptanceGate; Adaptation/Exception/KnownDeviation → `Divergence.kind`) | vocabulary must earn its teaching cost through use | slice + brownfield evidence; TS→Go mining report (R1) |
 | Cross-language reference edges; call/dataflow/ownership overlays | v0 maps containment + declarations (+ C# refs best-effort) | a fixture or benchmark question that needs them |
 | Delegation lattice (kb/26 full form) | one steward, one agent fleet; dial suffices | second decider type in real use |
+
+## Added 2026-07-10, from M1 integration and the adversarial verification round
+
+| Item | Parked because | Promotion trigger |
+|---|---|---|
+| Gneiss facade: `Append` returning per-item aids | binding recovers aids via ledger-export scan (documented DIVERGENCE) | next Gneiss increment (facade v0.1) |
+| Gneiss facade: deterministic (content-derived) `Label.ReceiptId` | random GUID per Ask; Atlas substitutes `ResultHash` | facade v0.1 |
+| Gneiss facade: fetch assertion by aid | two callers parse the export instead | facade v0.1 |
+| Criterion-based staleness for anchor-less `covers` correspondences | v0 staleness is anchor drift only; corr-covers is structurally exempt (its verification CLAIM does get stale-marked via the unit's criteria, so the signal exists — only the yaml corr entry lacks the flag) | first fixture where the claim-level signal is insufficient |
+| Why-tree status vocabulary alignment ("proposed" vs "proposed-unadmitted") | two code paths, two label sets; not a truth error | Atlas polish pass |
+| Harness distinctness attestation (source-cmd vs target-cmd provably different implementations) | inherent limit of black-box stdout diffing; noted in CONTRACT §6 | provenance binding of commands to map entities |

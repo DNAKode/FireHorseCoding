@@ -83,8 +83,11 @@ Shared dump format: fixtures/slice-zero/CONTRACT.md §6.
 ## 5. Gneiss binding (claims — kb/37 §4.3 promotion rule)
 
 Predicates (declared once at `kp init` with comparator exact, stopRung 6):
-- `kp.behavior` — subject `unit:<unitId>`; value = Text(claim sentence). Evidence: justification
-  refs to evidence assertions.
+- `kp.behavior` — subject `behavior:<unitId>:<claimId>`; value = Text(claim sentence). Evidence:
+  justification refs to evidence assertions. *(Corrected 2026-07-10 during M1 integration: the
+  original `unit:<unitId>` subject gave all of a unit's behavior claims one Gneiss claim key, so
+  accepting a later claim silently defeated an earlier one at strainer rung 6. Each behavior claim
+  is an independently disputable judgment — the granularity rule — and therefore owns its subject.)*
 - `kp.evidence.anchor` — subject `anchor:<sha of symbolPath|basisLabel>`; value = Json({symbolPath,
   basisLabel, contentHash, file, lines}). Fact status (mechanical observation).
 - `kp.correspondence` — subject `corr:<id>`; value = Json({type, source, target, unit, criterion}).
@@ -102,14 +105,27 @@ Predicates (declared once at `kp init` with comparator exact, stopRung 6):
 
 `kp verify run --unit <id> --cases <cases.jsonl> --source-cmd "<cmd>" --target-cmd "<cmd>"`:
 pipe the cases file to each command's stdin (working dir = workspace parent), capture stdout JSONL,
-compare per case: byte equality of the `result` JSON → pass/fail per case. Write
-`runs/verify-<unit>-<timestamp>.json` report {criterion, corpusHash: sha256(cases file),
-sourceCmd, targetCmd, sourceBasis, targetBasis, results: [{name, match, sourceResult, targetResult
-(only when mismatch)}], verdict: pass|fail}, plus a small markdown lab notebook
-`runs/verify-<unit>-<timestamp>.md` (inputs, verdict, counts, THE EXACT RERUN COMMAND).
+compare per case: byte equality of the `result` JSON → pass/fail per case. A case name that repeats
+within either stream's stdout is itself a fail for that case ("duplicate result line for case
+&lt;name&gt; in source|target output") — never silently resolved to the last-seen line. Write
+`runs/verify-<unit>-<criterion>-<corpusHash[..12]>.json` report {unit, criterion, corpusHash:
+sha256(cases file), sourceCmd, targetCmd, sourceBasis, targetBasis, results: [{name, match,
+sourceResult, targetResult, reason (only when unmatched)}], verdict: pass|fail}, plus a small
+markdown lab notebook `runs/verify-<unit>-<criterion>-<corpusHash[..12]>.md` (inputs, verdict,
+counts, THE EXACT RERUN COMMAND). The report file names — and the `reportPath` embedded in the
+promoted claim value below — are content-addressed off `corpusHash`, not wall-clock time: a rerun
+of the same corpus overwrites its own report, and identical inputs at different real times produce
+byte-identical claim value JSON (CONTRACT.md §8's "differ ONLY in the generated-timestamp"
+guarantee depends on this).
 Then promote/refresh the `kp.verification` claim (proposed) + policy auto-accept if green & policy
 allows. A failed run records verdict fail — it is evidence too, and it must NOT be auto-accepted
 as a pass (obviously) but IS recorded as a claim with verdict fail, contested-visible in the Atlas.
+
+Caveat: the harness cannot itself prove that `source-cmd` and `target-cmd` invoke two genuinely
+distinct implementations — it only pipes the same cases file to whatever two commands it is given
+and compares stdout. Distinctness (that target-cmd really is the port, not source-cmd relabeled or
+a copy) is provenance the correspondence map and unit anchors supply, not something the comparator
+verifies; a verify run proves output agreement given that provenance, nothing more.
 
 ## 7. Advance & staleness (K6-lite)
 
@@ -170,7 +186,7 @@ kp map     --workspace <dir> --side source|target --label <s> [--dump <rust-dump
 kp unit    new --workspace <dir> --id <s> --name <s> --source-anchors <sp,sp> [--target-anchors ...]
 kp corr    add --workspace <dir> --type <t> --unit <id> [--source <sp>] [--target <sp>]
            [--criterion <c>] [--divergence-kind <k>] [--note <s>]
-kp claim   add --workspace <dir> --unit <id> --predicate kp.behavior --value <s> --anchors <sp,sp>
+kp claim   add --workspace <dir> --unit <id> --id <s> --predicate kp.behavior --value <s> --anchors <sp,sp>
 kp decide  --workspace <dir> --subject <claim subject> --verdict accept|reject --reason <s>
 kp verify  run --workspace <dir> --unit <id> --cases <p> --source-cmd <s> --target-cmd <s>
 kp advance --workspace <dir> --side source --root <p> --label <s> [--dump <json>]

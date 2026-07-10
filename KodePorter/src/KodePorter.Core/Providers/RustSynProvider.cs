@@ -10,7 +10,11 @@ namespace KodePorter.Core.Providers;
 /// </summary>
 public sealed class RustSynProvider
 {
-    private const string RequiredProviderPrefix = "rust-syn@";
+    // Known dump producers. The fixture's actual tool identifies itself as "rust-map-dump@<ver>"
+    // (tools/rust-map-dump), while the original contract example used "rust-syn@<ver>" — an M1
+    // integration finding (2026-07-10): two agents implemented the two contract examples. Both
+    // names are accepted; the exact provider string is recorded with the import either way.
+    private static readonly string[] KnownProviderPrefixes = ["rust-syn@", "rust-map-dump@"];
 
     /// <summary>Reads the dump at <paramref name="dumpJsonPath"/> and writes its entities under <paramref name="basis"/>.</summary>
     public ImportResult Import(MapStore store, Basis basis, string dumpJsonPath)
@@ -34,10 +38,11 @@ public sealed class RustSynProvider
             throw new InvalidDataException($"Rust dump JSON at '{dumpJsonPath}' is not valid JSON: {ex.Message}", ex);
         }
 
-        if (string.IsNullOrEmpty(dump.Provider) || !dump.Provider.StartsWith(RequiredProviderPrefix, StringComparison.Ordinal))
+        if (string.IsNullOrEmpty(dump.Provider) ||
+            !KnownProviderPrefixes.Any(p => dump.Provider.StartsWith(p, StringComparison.Ordinal)))
         {
             throw new InvalidDataException(
-                $"Rust dump JSON at '{dumpJsonPath}' has provider '{dump.Provider}'; expected it to start with '{RequiredProviderPrefix}'.");
+                $"Rust dump JSON at '{dumpJsonPath}' has provider '{dump.Provider}'; expected it to start with 'rust-syn@' or 'rust-map-dump@'.");
         }
 
         for (int i = 0; i < dump.Entities.Count; i++)
