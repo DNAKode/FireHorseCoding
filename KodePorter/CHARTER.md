@@ -420,6 +420,8 @@ KodePorter should be assembled as interoperable components around the shared dom
 
 KodePorter need not own an IDE or agent runtime. It should integrate with existing tools through stable interfaces. The persistent map and workflow are the product center.
 
+**Positioning in the agent-coding space** *(clarified 2026-07-11, steward direction)*: KodePorter is the **system of record for a port** — the explicit, hierarchical representation of how two systems relate, including the typed imperfections of that representation itself (unknown, candidate, thin, stale, conflicting, absent-with-kind). Orchestration methods — however capable, whoever's — are *consumers* of that representation: they read the map for orientation and direction (work queues, bounded context, acceptance gates) and write back through proposals, evidence, and decisions. They are never components of KodePorter, and KodePorter must remain fully usable by an orchestrator that has never seen the method that built it. Lessons about porting correctly are absorbed as *schema and affordances* (a typed property, a standing query, a gate policy), not as method prose; method prose belongs in orchestration guides outside the product.
+
 ## 15. First implementation
 
 The first prototype is a thin, complete KodePorter-on-Gneiss cell, not an isolated graph platform.

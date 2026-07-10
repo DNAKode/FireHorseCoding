@@ -232,6 +232,78 @@ Shared Slice Zero fixture with escalation-only ground-truth edits; `Gneiss.Facad
 
 ---
 
+## 10.5 Post-M1 replan (2026-07-11, steward-directed)
+
+The M1 drive landed S1 plus the S2/S3 mechanics ahead of schedule (see
+[showcase/m1/NOTEBOOK.md](../showcase/m1/NOTEBOOK.md)); this section re-points the next two
+increments per the steward's positioning steer: KodePorter is the explicit representation of a
+system mapping — including the imperfections of the mapping itself — and orchestration methods are
+consumers, recorded separately in [orchestration/PLAYBOOK.md](../orchestration/PLAYBOOK.md).
+
+### M1.5 — The imperfection vocabulary (next increment)
+
+Extend the map schema so it can describe its own epistemic state, per layer, as small closed sets,
+each rendered as a first-class visual state in the Atlas:
+
+| Layer | Typed states to add |
+|---|---|
+| Cartography | per-entity resolution grade (clean / degraded-resolution / provider-gap) — the "39 diagnostics" become addressable facts |
+| Identity | continuity-unknown (candidate same-entity links across bases, unconfirmed) |
+| Correspondence | provenance grade: candidate (inferred, unreviewed) / asserted / verified; conflicting-correspondence detection; refinement links between coarse (unit) and fine (entity) correspondences |
+| Understanding | mapped-but-thin vs dossiered (typed, not inferred from empty prose) |
+| Absence | source-without-target: not-yet-ported / deliberately-dropped / unknown; target-only: intentional / unexplained |
+| Evidence | independence typing on VerificationRuns (independently-derived vs implementation-coupled); corpus-coverage declaration; stale-basis |
+| Staleness | measured cone precision carried in the advance report and health |
+
+Also in scope: `kp note` (the two-tier capture verb, chartered K-A8, currently unwired), health
+`unknown` filtered by kind/test-ness, Gneiss facade v0.1 (per-item aids from `Append`,
+deterministic receipt ids, fetch-by-aid), and the THE-PAGE findings annex ratifying the grounded
+pairwise conflict semantics and consumed-set closure (steward sign-off required — it touches
+"fold, not search").
+
+### M2′ — FrankenTui: probe, then the iterative learning loop (steward-directed shape)
+
+Both repositories are local (`C:\Work\FrankenTui.Net`; Rust upstream vendored at
+`.external/frankentui`). Sequence:
+
+**Probe (read-only, K2b):** cartography of both sides at pinned commits; scale and mess report;
+imperfection-vocabulary stress test (a brownfield map is *mostly* imperfection states — the
+fixture flattered us by being clean).
+
+**Bootstrap:** candidate correspondences inferred by low-cost agents (entering as `candidate`
+grade, never silently asserted), depth classification on samples, absence typing, honest test
+baseline (inherited failures separated from regressions).
+
+**The learning loop** — iterate, with the map as both memory and fitness function:
+
+1. **Direct:** standing queries over the map select bounded work items — the stale queue, the
+   candidate-review queue, the thin queue, the unverified queue, the absence-unknown queue.
+2. **Work:** very low-cost agents execute bounded items (verify a candidate link, deepen a
+   dossier, port a gap, repair a test) with `kp context`-style bounded input.
+3. **Check:** *independent* low-cost checkers verify — evidence recorded with its independence
+   type; nothing implementation-coupled can satisfy an acceptance gate alone.
+4. **Record:** everything flows through kp into the ledger — proposals, decisions (policy
+   auto-accept by default, sampled audit), stale marks. No knowledge lives in prompts.
+5. **Measure:** per-iteration health snapshot + test-baseline delta + Atlas snapshot into the
+   longitudinal gallery. An iteration *improves* if verified coverage rises without new
+   regressions or stale debt; it *regresses* if the deltas go negative. The gallery becomes the
+   loop's fitness chart.
+6. **Learn:** each work item records its **method** (agent tier, prompt template, direction
+   policy) in the Gneiss method envelope; acceptance, rework, and regression rates accumulate
+   per method as ordinary ledger data. Direction policy prefers methods with earned skill and
+   prunes ones that regress — "which iterations improve" is a query, not an impression.
+   *(This is the lessons-become-schema rule applied to the loop itself: the learning lives in
+   the map's method-skill records, not in orchestrator memory.)*
+
+**Rails:** upstream stays read-only; target work on branches only; no destructive git; inherited
+failures never count as regressions; economics instrumentation (tokens per accepted verified
+delta, human minutes — expected ~0 — rework rate) wired before the loop starts, so the M3
+keep-earning memo cites numbers.
+
+**Kill-watch (live numbers, per chartered criteria):** cone precision at brownfield scale;
+candidate-queue depth vs review capacity (confidence-theater tripwire); map-maintenance cost vs
+re-investigation saved.
+
 ## 11. Charter amendment dependencies
 
 Assumes K-A1 (else the schema work for the full §7 vocabulary adds ~2–3 weeks and teaches less), K-A2 (else M2 is a single all-or-nothing gate), K-A3 (the anti-laundering gate is load-bearing in K5), K-A6 (in-repo artifacts are K-D4/K-D5), K-A7 (the benchmark definition above), K-A8 (same-session capture as design constraint), K-A9 (the representation ladder is §3.0; `kp adopt`/`kp export` are v0 verbs in K3), and K-A10 (the autonomy dial is K-D9/K5; zero human minutes is a supported operating point, not an aspiration). If K-A5 (investigated-absence) is declined, S3's cone loses closure invalidation and the roadmap's staleness story weakens accordingly — not recommended.

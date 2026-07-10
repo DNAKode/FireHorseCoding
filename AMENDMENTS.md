@@ -30,3 +30,25 @@ governs. Demoted vocabulary and deferred mechanisms are parked in [ATTIC.md](ATT
   written contracts; steward-tier effort reserved for contracts, integration gates, and review.
 - **Autonomy fixture obligation (K-A10/G-A9):** the increment must demonstrate both the delegated
   (zero-human-minutes, policy auto-accept on green mechanical evidence) and gated decision postures.
+
+## 2026-07-11 — Post-M1 positioning and replan (steward direction)
+
+- **KodePorter positioning clarified** (charter §14 paragraph added): the system of record for a
+  port — the explicit map with typed imperfections of the mapping itself; orchestration methods
+  are consumers, never components. Lessons about porting correctly are absorbed as schema and
+  affordances, never as method prose in the product.
+- **Orchestration playbook recorded** at [orchestration/PLAYBOOK.md](orchestration/PLAYBOOK.md) —
+  Fable-specific agent-orchestration methods from the M1 drive, deliberately fenced from the
+  mappings work; may become part of a larger service. Standing tripwire adopted: more
+  orchestration prose than product schema in this repo = KodePorter dissolving into methodology.
+- **Next increments re-pointed** (roadmap §10.5): M1.5 = the imperfection vocabulary (the map
+  describes its own epistemic state, per layer, rendered in the Atlas) + `kp note` + Gneiss facade
+  v0.1 + THE-PAGE findings annex. M2′ = FrankenTui probe → **iterative learning loop** (steward
+  shape): low-cost agents work and check bounded items, kp records and directs, per-iteration
+  health/test deltas measure improvement vs regression, and method-skill accumulates as ledger
+  data so "which iterations improve" is a query.
+- **Open for steward ratification:** the grounded pairwise conflict semantics and consumed-set
+  transitive closure installed during the M1 verification round touch the "fold, not a search"
+  principle (judged a deterministic bounded closure, not search — but the call was made by the
+  steward's delegate and needs sign-off; see showcase/m1/NOTEBOOK.md and the pending THE-PAGE
+  findings annex).
