@@ -1,6 +1,6 @@
 # Verify run: parser-core / io-agreement-v1
 
-- Generated: `2026-07-10T22:15:51Z`
+- Generated: `2026-07-11T20:54:09Z`
 - Cases file: `C:\Work\FireHorseCoding\fixtures\slice-zero\corpus\cases.jsonl`
 - Source basis: `base`
 - Target basis: `base`

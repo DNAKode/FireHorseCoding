@@ -5,6 +5,8 @@ namespace KodePorter.Core.Domain;
 /// <summary>
 /// A unit dossier: units/&lt;id&gt;.md, YAML front matter + markdown body (CONTRACT.md §4).
 /// </summary>
+/// <param name="Depth">CONTRACT-M15.md §1.4: `thin|dossiered`. A typed judgment, set explicitly
+/// via `kp unit set-depth` — never inferred from prose length. Default `thin`.</param>
 public sealed record UnitDoc(
     string Id,
     string Name,
@@ -16,7 +18,8 @@ public sealed record UnitDoc(
     string Purpose,
     string Contract,
     string Questions,
-    string Evidence);
+    string Evidence,
+    string Depth = "thin");
 
 public static class UnitYaml
 {
@@ -54,6 +57,10 @@ public static class UnitYaml
         sb.Append("claims: ").Append(YamlFlowList.Write(doc.Claims)).Append('\n');
         if (doc.Stale)
             sb.Append("stale: true\n");
+        // CONTRACT-M15.md §1.4: only written when non-default, mirroring the `stale` field's
+        // sparse-when-default convention; a reader defaults to "thin" when the key is absent.
+        if (doc.Depth != "thin")
+            sb.Append("depth: ").Append(YamlScalarCodec.Quote(doc.Depth)).Append('\n');
         sb.Append("---\n");
         sb.Append('\n');
         AppendSection(sb, "Purpose", doc.Purpose);
@@ -101,6 +108,7 @@ public static class UnitYaml
         var targetAnchors = new List<AnchorRef>();
         var claims = new List<string>();
         bool stale = false;
+        string depth = "thin";
 
         while (i < lines.Count && lines[i] != "---")
         {
@@ -123,6 +131,7 @@ public static class UnitYaml
                 case "status": status = YamlScalarCodec.Unquote(value); break;
                 case "claims": claims = YamlFlowList.Parse(value); break;
                 case "stale": stale = value == "true"; break;
+                case "depth": depth = YamlScalarCodec.Unquote(value); break;
             }
             i++;
         }
@@ -142,7 +151,8 @@ public static class UnitYaml
             sections.GetValueOrDefault("Purpose", ""),
             sections.GetValueOrDefault("Contract", ""),
             sections.GetValueOrDefault("Questions", ""),
-            sections.GetValueOrDefault("Evidence", ""));
+            sections.GetValueOrDefault("Evidence", ""),
+            depth);
     }
 
     private static int ParseAnchorList(List<string> lines, int i, List<AnchorRef> target)

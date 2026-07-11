@@ -35,7 +35,7 @@ public sealed class Test1_WrongSilo
             new IAppendItem[]
             {
                 new NewAssertion("Silo17", "fillLevel", GValue.Number(4.2m), ValidFrom: Jun20_1000, Source: "manual_laser"),
-            }).Value;
+            }).Tx.Value;
         var aidA1 = TestHelpers.FindAid(l, txA1, "Silo17", "fillLevel");
 
         // tx2 — A2: massEstimate(Silo17) = 12.4t @ [Jun20 10:00], just={A1, ShapeV7, DensityV3, FormulaV5}
@@ -50,13 +50,13 @@ public sealed class Test1_WrongSilo
                         new JustRef(null, "DensityV3", "rule"),
                         new JustRef(null, "FormulaV5", "rule"),
                     }),
-            }).Value;
+            }).Tx.Value;
         var aidA2 = TestHelpers.FindAid(l, txA2, "Silo17", "massEstimate");
 
         // tx3 — D1: retracts A1, reason="wrong silo selected"
         var txD1 = l.Append(
             TestHelpers.Env("auditor", "wrong silo selected", Jun22_0910),
-            new IAppendItem[] { new NewDecision(DecisionKind.Retracts, TargetAid: aidA1) }).Value;
+            new IAppendItem[] { new NewDecision(DecisionKind.Retracts, TargetAid: aidA1) }).Tx.Value;
         var aidD1 = TestHelpers.FindAid(l, txD1, aidA1, "gneiss.decision");
 
         // tx4 — A3: fillLevel(Silo18) = 4.2m @ [Jun20 10:00], src=correction
@@ -65,7 +65,7 @@ public sealed class Test1_WrongSilo
             new IAppendItem[]
             {
                 new NewAssertion("Silo18", "fillLevel", GValue.Number(4.2m), ValidFrom: Jun20_1000, Source: "correction"),
-            }).Value;
+            }).Tx.Value;
         var aidA3 = TestHelpers.FindAid(l, txA3, "Silo18", "fillLevel");
 
         l.DeclareContext(TestHelpers.Env("steward", "declare audit context", Jun22_0911), new ContextDecl("AuditJun21", DataCut: txA2, DefCut: txA2));

@@ -30,6 +30,9 @@ public sealed record AnchorRefValue(
     [property: JsonPropertyName("contentHash")] string ContentHash);
 
 /// <summary>The kp.verification claim payload (CONTRACT.md §5/§6).</summary>
+/// <param name="Independence">CONTRACT-M15.md §1.6: `independently-derived | implementation-
+/// coupled | unknown`, caller-attested via `kp verify run --independence &lt;v&gt;`. Default
+/// `unknown`.</param>
 public sealed record VerificationClaimValue(
     [property: JsonPropertyName("verdict")] string Verdict, // pass | fail
     [property: JsonPropertyName("corpusHash")] string CorpusHash,
@@ -37,7 +40,8 @@ public sealed record VerificationClaimValue(
     [property: JsonPropertyName("targetBasis")] string TargetBasis,
     [property: JsonPropertyName("cases")] int Cases,
     [property: JsonPropertyName("mismatches")] IReadOnlyList<string> Mismatches,
-    [property: JsonPropertyName("reportPath")] string ReportPath);
+    [property: JsonPropertyName("reportPath")] string ReportPath,
+    [property: JsonPropertyName("independence")] string Independence = "unknown");
 
 /// <summary>The kp.stale fact payload (CONTRACT.md §7).</summary>
 public sealed record StaleValue(

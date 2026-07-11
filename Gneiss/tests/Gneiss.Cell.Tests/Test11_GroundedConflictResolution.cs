@@ -30,15 +30,15 @@ public sealed class Test11_GroundedConflictResolution
         var txY = l.Append(TestHelpers.Env("x", "y", T0), new IAppendItem[]
         {
             new NewAssertion("Chain1", "reading", GValue.Number(2m), ValidFrom: T0.AddHours(5), ValidTo: T0.AddHours(15)),
-        }).Value;
+        }).Tx.Value;
         var txX = l.Append(TestHelpers.Env("x", "x", T0), new IAppendItem[]
         {
             new NewAssertion("Chain1", "reading", GValue.Number(1m), ValidFrom: T0.AddHours(0), ValidTo: T0.AddHours(10)),
-        }).Value;
+        }).Tx.Value;
         var txZ = l.Append(TestHelpers.Env("x", "z", T0), new IAppendItem[]
         {
             new NewAssertion("Chain1", "reading", GValue.Number(1m), ValidFrom: T0.AddHours(12), ValidTo: T0.AddHours(20)),
-        }).Value;
+        }).Tx.Value;
 
         var aidY = TestHelpers.FindAid(l, txY, "Chain1", "reading");
         var aidX = TestHelpers.FindAid(l, txX, "Chain1", "reading");
@@ -78,15 +78,15 @@ public sealed class Test11_GroundedConflictResolution
         var txA = l.Append(TestHelpers.Env("x", "a", T0), new IAppendItem[]
         {
             new NewAssertion("Chain2", "chain2", GValue.Text("a"), ValidFrom: T0.AddHours(0), ValidTo: T0.AddHours(10), Source: "strong"),
-        }).Value;
+        }).Tx.Value;
         var txB = l.Append(TestHelpers.Env("x", "b", T0), new IAppendItem[]
         {
             new NewAssertion("Chain2", "chain2", GValue.Text("b"), ValidFrom: T0.AddHours(5), ValidTo: T0.AddHours(15), Source: "weak"),
-        }).Value;
+        }).Tx.Value;
         var txC = l.Append(TestHelpers.Env("x", "c", T0), new IAppendItem[]
         {
             new NewAssertion("Chain2", "chain2", GValue.Text("c"), ValidFrom: T0.AddHours(12), ValidTo: T0.AddHours(20), Source: "weak"),
-        }).Value;
+        }).Tx.Value;
 
         var aidA = TestHelpers.FindAid(l, txA, "Chain2", "chain2");
         var aidB = TestHelpers.FindAid(l, txB, "Chain2", "chain2");
@@ -128,15 +128,15 @@ public sealed class Test11_GroundedConflictResolution
         var txA = l.Append(TestHelpers.Env("x", "a", T0), new IAppendItem[]
         {
             new NewAssertion("Chain3", "chain3", GValue.Text("a"), ValidFrom: T0.AddHours(0), ValidTo: T0.AddHours(10), Source: "strong"),
-        }).Value;
+        }).Tx.Value;
         var txB = l.Append(TestHelpers.Env("x", "b", T0), new IAppendItem[]
         {
             new NewAssertion("Chain3", "chain3", GValue.Text("b"), ValidFrom: T0.AddHours(5), ValidTo: T0.AddHours(15), Source: "strong"),
-        }).Value;
+        }).Tx.Value;
         var txC = l.Append(TestHelpers.Env("x", "c", T0), new IAppendItem[]
         {
             new NewAssertion("Chain3", "chain3", GValue.Text("c"), ValidFrom: T0.AddHours(12), ValidTo: T0.AddHours(20), Source: null),
-        }).Value;
+        }).Tx.Value;
 
         var aidA = TestHelpers.FindAid(l, txA, "Chain3", "chain3");
         var aidB = TestHelpers.FindAid(l, txB, "Chain3", "chain3");

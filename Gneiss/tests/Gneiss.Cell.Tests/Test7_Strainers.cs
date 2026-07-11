@@ -21,11 +21,11 @@ public sealed class Test7_Strainers
         var txManual = l.Append(TestHelpers.Env("x", "manual reading", T0), new IAppendItem[]
         {
             new NewAssertion("SensorA", "temp", GValue.Text("hot"), Source: "manual"),
-        }).Value;
+        }).Tx.Value;
         var txRadar = l.Append(TestHelpers.Env("x", "radar reading", T0), new IAppendItem[]
         {
             new NewAssertion("SensorA", "temp", GValue.Text("cold"), Source: "radar"),
-        }).Value;
+        }).Tx.Value;
 
         var aidManual = TestHelpers.FindAid(l, txManual, "SensorA", "temp");
         var aidRadar = TestHelpers.FindAid(l, txRadar, "SensorA", "temp");
@@ -51,11 +51,11 @@ public sealed class Test7_Strainers
         var txHigh = l.Append(TestHelpers.Env("x", "r1", T0), new IAppendItem[]
         {
             new NewAssertion("SensorB", "score", GValue.Number(1m), ConfidenceBp: 9000),
-        }).Value;
+        }).Tx.Value;
         var txLow = l.Append(TestHelpers.Env("x", "r2", T0), new IAppendItem[]
         {
             new NewAssertion("SensorB", "score", GValue.Number(2m), ConfidenceBp: 5000),
-        }).Value;
+        }).Tx.Value;
 
         var aidHigh = TestHelpers.FindAid(l, txHigh, "SensorB", "score");
         var aidLow = TestHelpers.FindAid(l, txLow, "SensorB", "score");
@@ -81,11 +81,11 @@ public sealed class Test7_Strainers
         var tx1 = l.Append(TestHelpers.Env("x", "r1", T0), new IAppendItem[]
         {
             new NewAssertion("SensorC", "flag", GValue.Bool(true)),
-        }).Value;
+        }).Tx.Value;
         var tx2 = l.Append(TestHelpers.Env("x", "r2", T0), new IAppendItem[]
         {
             new NewAssertion("SensorC", "flag", GValue.Bool(false)),
-        }).Value;
+        }).Tx.Value;
 
         var aid1 = TestHelpers.FindAid(l, tx1, "SensorC", "flag");
         var aid2 = TestHelpers.FindAid(l, tx2, "SensorC", "flag");
@@ -112,11 +112,11 @@ public sealed class Test7_Strainers
         var tx1 = l.Append(TestHelpers.Env("x", "r1", T0), new IAppendItem[]
         {
             new NewAssertion("SensorD", "weight2", GValue.Number(4.2m), Source: "a"),
-        }).Value;
+        }).Tx.Value;
         var tx2 = l.Append(TestHelpers.Env("x", "r2", T0), new IAppendItem[]
         {
             new NewAssertion("SensorD", "weight2", GValue.Number(4.20000000001m), Source: "b"),
-        }).Value;
+        }).Tx.Value;
 
         var aid1 = TestHelpers.FindAid(l, tx1, "SensorD", "weight2");
         var aid2 = TestHelpers.FindAid(l, tx2, "SensorD", "weight2");

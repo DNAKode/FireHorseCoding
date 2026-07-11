@@ -447,13 +447,18 @@ public static class KpCliApp
         using var workspace = KpWorkspace.Open(workspaceDir);
         using var binding = GneissBinding.Initialize(workspaceDir);
 
+        // NB: KodePorter.Core.HealthReport's shape moved to "Health v2" (CONTRACT-M15.md §1.7)
+        // concurrently with this Cli project being explicitly out of scope for that increment;
+        // this is the minimum mechanical edit to keep the solution compiling against the new
+        // shape (h.Unknown -> h.Absence.Unknown). Printing the v2 fields in full ("kp status
+        // prints all") is left to the agent that owns KodePorter.Cli.
         var h = HealthCalculator.Compute(workspaceDir, workspace.Map, binding);
         stdout.WriteLine($"mapped: {h.Mapped}");
         stdout.WriteLine($"corresponded: {h.Corresponded}");
         stdout.WriteLine($"implemented: {h.Implemented}");
         stdout.WriteLine($"verified: {h.Verified}");
         stdout.WriteLine($"stale: {h.Stale}");
-        stdout.WriteLine($"unknown: {h.Unknown}");
+        stdout.WriteLine($"unknown: {h.Absence.Unknown}");
     }
 
     // ---- export ---------------------------------------------------------------------------------

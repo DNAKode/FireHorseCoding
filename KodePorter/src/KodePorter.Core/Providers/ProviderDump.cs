@@ -26,6 +26,10 @@ public sealed record ProviderDump(
 /// <param name="EndLine">1-based inclusive end line.</param>
 /// <param name="ContentHash">sha256 hex of the declaration span text with \r\n normalized to \n.</param>
 /// <param name="ParentSymbolPath">symbolPath of the containing entity, or null at the root.</param>
+/// <param name="Resolution">Optional resolution grade (CONTRACT-M15.md §1.1/§5 dump format v1.1):
+/// `clean|degraded|gap`. Absent (null) means the caller should default to `clean`.</param>
+/// <param name="IsTest">Optional test-ness flag (CONTRACT-M15.md §1.1). Absent (null) means the
+/// caller should default to false.</param>
 public sealed record DumpEntity(
     [property: JsonPropertyName("kind")] string Kind,
     [property: JsonPropertyName("name")] string Name,
@@ -34,4 +38,6 @@ public sealed record DumpEntity(
     [property: JsonPropertyName("startLine")] int StartLine,
     [property: JsonPropertyName("endLine")] int EndLine,
     [property: JsonPropertyName("contentHash")] string ContentHash,
-    [property: JsonPropertyName("parentSymbolPath")] string? ParentSymbolPath);
+    [property: JsonPropertyName("parentSymbolPath")] string? ParentSymbolPath,
+    [property: JsonPropertyName("resolution")] string? Resolution = null,
+    [property: JsonPropertyName("isTest")] bool? IsTest = null);

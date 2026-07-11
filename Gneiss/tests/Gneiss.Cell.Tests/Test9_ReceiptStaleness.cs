@@ -16,7 +16,7 @@ public sealed class Test9_ReceiptStaleness
         using var path = new TempFile();
         using var l = GneissLedger.Create(path.Path);
 
-        var tx = l.Append(TestHelpers.Env("x", "seed", T0), new IAppendItem[] { new NewAssertion("Y", "p", GValue.Number(1m)) }).Value;
+        var tx = l.Append(TestHelpers.Env("x", "seed", T0), new IAppendItem[] { new NewAssertion("Y", "p", GValue.Number(1m)) }).Tx.Value;
         var aid = TestHelpers.FindAid(l, tx, "Y", "p");
 
         l.DeclareContext(TestHelpers.Env("x", "ctx", T0), new ContextDecl("St"));
@@ -65,13 +65,13 @@ public sealed class Test9_ReceiptStaleness
         using var path = new TempFile();
         using var l = GneissLedger.Create(path.Path);
 
-        var txA = l.Append(TestHelpers.Env("x", "seed", T0), new IAppendItem[] { new NewAssertion("Chain9", "p", GValue.Number(1m)) }).Value;
+        var txA = l.Append(TestHelpers.Env("x", "seed", T0), new IAppendItem[] { new NewAssertion("Chain9", "p", GValue.Number(1m)) }).Tx.Value;
         var aidA = TestHelpers.FindAid(l, txA, "Chain9", "p");
 
-        var txD1 = l.Append(TestHelpers.Env("x", "d1", T0), new IAppendItem[] { new NewDecision(DecisionKind.Retracts, TargetAid: aidA) }).Value;
+        var txD1 = l.Append(TestHelpers.Env("x", "d1", T0), new IAppendItem[] { new NewDecision(DecisionKind.Retracts, TargetAid: aidA) }).Tx.Value;
         var aidD1 = TestHelpers.FindAid(l, txD1, aidA, "gneiss.decision");
 
-        var txD2 = l.Append(TestHelpers.Env("x", "d2", T0), new IAppendItem[] { new NewDecision(DecisionKind.Retracts, TargetAid: aidD1) }).Value;
+        var txD2 = l.Append(TestHelpers.Env("x", "d2", T0), new IAppendItem[] { new NewDecision(DecisionKind.Retracts, TargetAid: aidD1) }).Tx.Value;
         var aidD2 = TestHelpers.FindAid(l, txD2, aidD1, "gneiss.decision");
 
         l.DeclareContext(TestHelpers.Env("x", "ctx", T0), new ContextDecl("Chain9Ctx"));
@@ -107,10 +107,10 @@ public sealed class Test9_ReceiptStaleness
         using var path = new TempFile();
         using var l = GneissLedger.Create(path.Path);
 
-        var txA = l.Append(TestHelpers.Env("x", "seed", T0), new IAppendItem[] { new NewAssertion("Chain9b", "p", GValue.Number(1m)) }).Value;
+        var txA = l.Append(TestHelpers.Env("x", "seed", T0), new IAppendItem[] { new NewAssertion("Chain9b", "p", GValue.Number(1m)) }).Tx.Value;
         var aidA = TestHelpers.FindAid(l, txA, "Chain9b", "p");
 
-        var txD1 = l.Append(TestHelpers.Env("x", "d1", T0), new IAppendItem[] { new NewDecision(DecisionKind.Retracts, TargetAid: aidA) }).Value;
+        var txD1 = l.Append(TestHelpers.Env("x", "d1", T0), new IAppendItem[] { new NewDecision(DecisionKind.Retracts, TargetAid: aidA) }).Tx.Value;
         var aidD1 = TestHelpers.FindAid(l, txD1, aidA, "gneiss.decision");
 
         l.Append(TestHelpers.Env("x", "d2", T0), new IAppendItem[] { new NewDecision(DecisionKind.Retracts, TargetAid: aidD1) });
@@ -119,7 +119,7 @@ public sealed class Test9_ReceiptStaleness
         var view = l.Ask("Chain9bCtx", new Question(Subject: "Chain9b", Predicate: "p"));
         var receiptId = view.Label.ReceiptId;
 
-        var txElsewhere = l.Append(TestHelpers.Env("x", "elsewhere", T0), new IAppendItem[] { new NewAssertion("Elsewhere9", "q", GValue.Text("z")) }).Value;
+        var txElsewhere = l.Append(TestHelpers.Env("x", "elsewhere", T0), new IAppendItem[] { new NewAssertion("Elsewhere9", "q", GValue.Text("z")) }).Tx.Value;
         var aidElsewhere = TestHelpers.FindAid(l, txElsewhere, "Elsewhere9", "q");
         l.Append(TestHelpers.Env("x", "unrelated-decision", T0), new IAppendItem[] { new NewDecision(DecisionKind.Retracts, TargetAid: aidElsewhere) });
 
@@ -139,13 +139,13 @@ public sealed class Test9_ReceiptStaleness
         using var path = new TempFile();
         using var l = GneissLedger.Create(path.Path);
 
-        var txA = l.Append(TestHelpers.Env("x", "seed", T0), new IAppendItem[] { new NewAssertion("Chain9c", "p", GValue.Number(1m)) }).Value;
+        var txA = l.Append(TestHelpers.Env("x", "seed", T0), new IAppendItem[] { new NewAssertion("Chain9c", "p", GValue.Number(1m)) }).Tx.Value;
         var aidA = TestHelpers.FindAid(l, txA, "Chain9c", "p");
 
-        var txD1 = l.Append(TestHelpers.Env("x", "d1", T0), new IAppendItem[] { new NewDecision(DecisionKind.Retracts, TargetAid: aidA) }).Value;
+        var txD1 = l.Append(TestHelpers.Env("x", "d1", T0), new IAppendItem[] { new NewDecision(DecisionKind.Retracts, TargetAid: aidA) }).Tx.Value;
         var aidD1 = TestHelpers.FindAid(l, txD1, aidA, "gneiss.decision");
 
-        var txD2 = l.Append(TestHelpers.Env("x", "d2", T0), new IAppendItem[] { new NewDecision(DecisionKind.Retracts, TargetAid: aidD1) }).Value;
+        var txD2 = l.Append(TestHelpers.Env("x", "d2", T0), new IAppendItem[] { new NewDecision(DecisionKind.Retracts, TargetAid: aidD1) }).Tx.Value;
         var aidD2 = TestHelpers.FindAid(l, txD2, aidD1, "gneiss.decision");
 
         l.Append(TestHelpers.Env("x", "d3", T0), new IAppendItem[] { new NewDecision(DecisionKind.Rejects, TargetAid: aidD2) });

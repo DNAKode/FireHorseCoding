@@ -21,7 +21,7 @@ public sealed class Test4_CutoffCoherence
         using (var a = GneissLedger.Create(pathA.Path))
         {
             a.Append(TestHelpers.Env("x", "r1", T0), new IAppendItem[] { new NewAssertion("Thing1", "weight", GValue.Number(10m)) });
-            cutTx = a.Append(TestHelpers.Env("x", "r2", T0), new IAppendItem[] { new NewAssertion("Thing2", "weight", GValue.Number(20m)) }).Value;
+            cutTx = a.Append(TestHelpers.Env("x", "r2", T0), new IAppendItem[] { new NewAssertion("Thing2", "weight", GValue.Number(20m)) }).Tx.Value;
             // this transaction must be excluded by the cutoff:
             a.Append(TestHelpers.Env("x", "r3", T0), new IAppendItem[] { new NewAssertion("Thing3", "weight", GValue.Number(30m)) });
 

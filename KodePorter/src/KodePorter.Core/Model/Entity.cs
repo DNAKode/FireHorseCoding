@@ -13,6 +13,10 @@ namespace KodePorter.Core.Model;
 /// <param name="EndLine">1-based inclusive end line of the declaration span.</param>
 /// <param name="ContentHash">sha256 of the declaration span text with \r\n normalized to \n.</param>
 /// <param name="ParentId">Entity id of the containing entity within this basis, or null at the root.</param>
+/// <param name="Resolution">Entity resolution grade (CONTRACT-M15.md §1.1): `clean|degraded|gap`.
+/// Default `clean` when a provider does not report otherwise.</param>
+/// <param name="IsTest">Whether this entity was classified as test code (CONTRACT-M15.md §1.1).
+/// Default false.</param>
 public sealed record Entity(
     string Id,
     string BasisId,
@@ -23,4 +27,6 @@ public sealed record Entity(
     int StartLine,
     int EndLine,
     string ContentHash,
-    string? ParentId);
+    string? ParentId,
+    string Resolution = "clean",
+    bool IsTest = false);

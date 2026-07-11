@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Gneiss.Cell;
+using KodePorter.Core.Absence;
 using KodePorter.Core.Domain;
 using KodePorter.Core.Gneiss;
 using KodePorter.Core.Model;
@@ -7,33 +8,41 @@ using KodePorter.Core.Store;
 
 namespace KodePorter.Core.Atlas;
 
-/// <summary>The six K-D12 health dimensions (CONTRACT.md §8 health strip / §9 `kp status`), in the contract's order.</summary>
+/// <summary>Source-side absence breakdown (CONTRACT-M15.md §1.5/§1.7), excluding is_test entities.</summary>
+public sealed record AbsenceBreakdown(int Unknown, int NotYetPorted, int DeliberatelyDropped);
+
+/// <summary>Target-side "target-only" breakdown (CONTRACT-M15.md §1.5/§1.7), excluding is_test entities.</summary>
+public sealed record TargetOnlyBreakdown(int Unexplained, int Intentional);
+
+/// <summary>Health v2 (CONTRACT-M15.md §1.7): the K-D12 health strip's dimensions, extended with
+/// the imperfection vocabulary. `kp status` prints all; the Atlas shows all.</summary>
+/// <param name="Mapped">Entity count in the current (latest-pinned) basis of each side, summed.</param>
+/// <param name="Corresponded">Entities in the current bases referenced by an `asserted` (or
+/// verified-derived-from-asserted) correspondence's source/target anchor — `candidate`
+/// correspondences are counted separately, never here.</param>
+/// <param name="Candidates">Count of `candidate`-provenance correspondences.</param>
+/// <param name="Implemented">Units with at least one targetAnchor.</param>
+/// <param name="Verified">Units with an accepted kp.verification claim whose verdict is "pass",
+/// for any criterion used by one of the unit's correspondences.</param>
+/// <param name="Stale">Accepted kp.stale facts currently in force (Ask("kp-current", ...)).</param>
+/// <param name="Absence">Source-side absence breakdown (CONTRACT-M15.md §1.5), excluding tests.</param>
+/// <param name="TargetOnly">Target-side "target-only" breakdown, excluding tests.</param>
 public sealed record HealthReport(
     int Mapped,
     int Corresponded,
+    int Candidates,
     int Implemented,
     int Verified,
     int Stale,
-    int Unknown);
+    AbsenceBreakdown Absence,
+    TargetOnlyBreakdown TargetOnly);
 
 /// <summary>
 /// Computes <see cref="HealthReport"/> — shared by the Atlas health strip and `kp status`'s
-/// plain-text output, so the two never drift (CONTRACT.md §8/§9: "same six numbers as the
-/// Atlas"). Definitions (CONTRACT.md §8):
-///   mapped        = entity count in the current (latest-pinned) basis of each side, summed.
-///   corresponded  = entities in the current bases whose symbolPath is referenced by any
-///                   correspondence's source/target anchor.
-///   implemented   = units with at least one targetAnchor.
-///   verified      = units with an ACCEPTED kp.verification claim whose verdict is "pass",
-///                   for any criterion used by one of the unit's correspondences.
-///   stale         = accepted kp.stale facts currently in force (Ask("kp-current", ...)).
-///   unknown       = current-basis SOURCE entities of kind fn/method/struct/enum that are
-///                   referenced by neither a unit's sourceAnchors nor any correspondence.
+/// plain-text output, so the two never drift (CONTRACT.md §8/§9: "same numbers as the Atlas").
 /// </summary>
 public static class HealthCalculator
 {
-    private static readonly HashSet<string> UnknownEligibleKinds = new(StringComparer.Ordinal) { "fn", "method", "struct", "enum" };
-
     public static HealthReport Compute(string workspaceDir, MapStore store, GneissBinding binding)
     {
         ArgumentException.ThrowIfNullOrEmpty(workspaceDir);
@@ -46,11 +55,17 @@ public static class HealthCalculator
         int mapped = sourceEntities.Count + targetEntities.Count;
 
         var correspondences = CorrespondencesYaml.Read(workspaceDir);
-        var sourceCorrSymbols = correspondences.Where(c => c.Source is not null).Select(c => c.Source!.SymbolPath).ToHashSet(StringComparer.Ordinal);
-        var targetCorrSymbols = correspondences.Where(c => c.Target is not null).Select(c => c.Target!.SymbolPath).ToHashSet(StringComparer.Ordinal);
+        // CONTRACT-M15.md §1.7: "corresponded (asserted/verified correspondences only)" —
+        // `verified` is a derived display state of an already-`asserted` row (never a distinct
+        // stored provenance), so filtering to non-`candidate` rows covers both.
+        var assertedCorrespondences = correspondences.Where(c => c.Provenance != "candidate").ToList();
+        var sourceCorrSymbols = assertedCorrespondences.Where(c => c.Source is not null).Select(c => c.Source!.SymbolPath).ToHashSet(StringComparer.Ordinal);
+        var targetCorrSymbols = assertedCorrespondences.Where(c => c.Target is not null).Select(c => c.Target!.SymbolPath).ToHashSet(StringComparer.Ordinal);
 
         int corresponded = sourceEntities.Count(e => sourceCorrSymbols.Contains(e.SymbolPath))
                           + targetEntities.Count(e => targetCorrSymbols.Contains(e.SymbolPath));
+
+        int candidates = correspondences.Count(c => c.Provenance == "candidate");
 
         var units = UnitYaml.ReadAll(workspaceDir);
         int implemented = units.Count(u => u.TargetAnchors.Count > 0);
@@ -61,13 +76,18 @@ public static class HealthCalculator
 
         int stale = view.Accepted.Count(e => e.Predicate == GneissBinding.PredStale);
 
-        var unitSourceSymbols = units.SelectMany(u => u.SourceAnchors).Select(a => a.SymbolPath).ToHashSet(StringComparer.Ordinal);
-        int unknown = sourceEntities.Count(e =>
-            UnknownEligibleKinds.Contains(e.Kind) &&
-            !unitSourceSymbols.Contains(e.SymbolPath) &&
-            !sourceCorrSymbols.Contains(e.SymbolPath));
+        var resolvedAbsences = AbsenceCalculator.Compute(workspaceDir, store);
+        var sourceAbsences = resolvedAbsences.Where(r => r.Side == "source").ToList();
+        var absence = new AbsenceBreakdown(
+            Unknown: sourceAbsences.Count(r => r.Kind == "unknown"),
+            NotYetPorted: sourceAbsences.Count(r => r.Kind == "not-yet-ported"),
+            DeliberatelyDropped: sourceAbsences.Count(r => r.Kind == "deliberately-dropped"));
+        var targetAbsences = resolvedAbsences.Where(r => r.Side == "target").ToList();
+        var targetOnly = new TargetOnlyBreakdown(
+            Unexplained: targetAbsences.Count(r => r.Kind == "unexplained"),
+            Intentional: targetAbsences.Count(r => r.Kind == "intentional"));
 
-        return new HealthReport(mapped, corresponded, implemented, verified, stale, unknown);
+        return new HealthReport(mapped, corresponded, candidates, implemented, verified, stale, absence, targetOnly);
     }
 
     private static IReadOnlyList<Entity> LatestEntities(MapStore store, BasisSide side)

@@ -56,6 +56,8 @@ public sealed class RustSynProvider
         return new ImportResult(entities.Count, ErrorDiagnosticCount: 0);
     }
 
+    private static readonly string[] ValidResolutions = ["clean", "degraded", "gap"];
+
     private static void ValidateEntity(DumpEntity e, int index, string dumpJsonPath)
     {
         if (string.IsNullOrEmpty(e.Kind))
@@ -66,5 +68,11 @@ public sealed class RustSynProvider
             throw new InvalidDataException($"Rust dump JSON at '{dumpJsonPath}': entities[{index}] is missing 'file'.");
         if (string.IsNullOrEmpty(e.ContentHash))
             throw new InvalidDataException($"Rust dump JSON at '{dumpJsonPath}': entities[{index}] is missing 'contentHash'.");
+        // CONTRACT-M15.md §1.1: dump entities MAY carry "resolution"/"isTest"; absent -> clean/0
+        // (handled by EntityResolution.ToEntities). When present, resolution must be one of the
+        // closed set (§5 dump format v1.1: "clean"|"degraded"|"gap").
+        if (e.Resolution is not null && !ValidResolutions.Contains(e.Resolution, StringComparer.Ordinal))
+            throw new InvalidDataException(
+                $"Rust dump JSON at '{dumpJsonPath}': entities[{index}] has resolution '{e.Resolution}'; expected one of clean|degraded|gap.");
     }
 }

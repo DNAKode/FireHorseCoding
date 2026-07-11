@@ -19,7 +19,7 @@ public sealed class Test8_AutoAdmit
         var tx = l.Append(TestHelpers.Env("agent", "propose risk flag", T0), new IAppendItem[]
         {
             new NewAssertion("X", "risk", GValue.Text("high"), Proposed: true, ConfidenceBp: 9000),
-        }).Value;
+        }).Tx.Value;
         var aid = TestHelpers.FindAid(l, tx, "X", "risk");
 
         l.DeclareContext(TestHelpers.Env("s", "ctx1", T0), new ContextDecl("Threshold", Admit: "threshold", AdmitThresholdBp: 8000));

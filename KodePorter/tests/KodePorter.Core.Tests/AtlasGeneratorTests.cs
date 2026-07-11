@@ -98,31 +98,48 @@ public class AtlasGeneratorTests
         using var store = new MapStore(Path.Combine(workspaceDir, "kpmap.db"));
         using var binding = GneissBinding.Initialize(workspaceDir);
 
-        // Hand-computed against the fixture built by BuildFixtureWorkspace:
+        // Hand-computed against the fixture built by BuildFixtureWorkspace, per CONTRACT-M15.md
+        // §1.7 (Health v2):
         //   mapped        = 5 source entities (module/struct/fn/fn/enum) + 8 target entities (HeaderParserSource.V1) = 13
         //   corresponded  = 2 source entities (parse, HeaderParser) + 1 target entity (Parse(string)) = 3
+        //                   (both corr-parse and corr-struct default to provenance "asserted")
+        //   candidates    = 0 (no candidate-provenance correspondences in this fixture)
         //   implemented   = 1 unit with a targetAnchor (unit-parse; unit-struct has none)
         //   verified      = 1 unit with an accepted kp.verification pass (unit-parse / io-agreement-v1)
         //   stale         = 1 accepted kp.stale fact (seeded on corr-struct)
-        //   unknown       = 2 source entities of eligible kind unreferenced by any unit/correspondence
-        //                   (headscan::unused_helper, headscan::ParseErrorCode)
-        var expected = new HealthReport(Mapped: 13, Corresponded: 3, Implemented: 1, Verified: 1, Stale: 1, Unknown: 2);
+        //   absence.unknown = 2 eligible source entities (fn/method/struct/enum/class), not is_test,
+        //                   uncovered by any unit anchor or correspondence, with no absences.yaml
+        //                   override -> default "unknown" (headscan::unused_helper, headscan::ParseErrorCode)
+        //   absence.notYetPorted / deliberatelyDropped = 0 (no overrides recorded)
+        //   targetOnly.unexplained = 2 eligible target entities, not is_test, uncovered by any unit
+        //                   targetAnchor or correspondence target -> default "unexplained"
+        //                   (HeadScan.HeaderParser class, HeadScan.ParseErrorCode enum)
+        //   targetOnly.intentional = 0 (no overrides recorded)
+        var expected = new HealthReport(
+            Mapped: 13, Corresponded: 3, Candidates: 0, Implemented: 1, Verified: 1, Stale: 1,
+            Absence: new AbsenceBreakdown(Unknown: 2, NotYetPorted: 0, DeliberatelyDropped: 0),
+            TargetOnly: new TargetOnlyBreakdown(Unexplained: 2, Intentional: 0));
 
         var actual = HealthCalculator.Compute(workspaceDir, store, binding);
 
         Assert.Equal(expected, actual);
 
         // The Atlas's embedded health block must report the exact same numbers (CONTRACT.md §9:
-        // "same six numbers as the Atlas").
+        // status numbers must match the Atlas).
         string html = AtlasGenerator.Generate(workspaceDir, store, binding, new DateTimeOffset(2026, 7, 10, 12, 0, 0, TimeSpan.Zero));
         using var doc = JsonDocument.Parse(ExtractDataIsland(html));
         var h = doc.RootElement.GetProperty("health");
         Assert.Equal(expected.Mapped, h.GetProperty("mapped").GetInt32());
         Assert.Equal(expected.Corresponded, h.GetProperty("corresponded").GetInt32());
+        Assert.Equal(expected.Candidates, h.GetProperty("candidates").GetInt32());
         Assert.Equal(expected.Implemented, h.GetProperty("implemented").GetInt32());
         Assert.Equal(expected.Verified, h.GetProperty("verified").GetInt32());
         Assert.Equal(expected.Stale, h.GetProperty("stale").GetInt32());
-        Assert.Equal(expected.Unknown, h.GetProperty("unknown").GetInt32());
+        Assert.Equal(expected.Absence.Unknown, h.GetProperty("absence").GetProperty("unknown").GetInt32());
+        Assert.Equal(expected.Absence.NotYetPorted, h.GetProperty("absence").GetProperty("notYetPorted").GetInt32());
+        Assert.Equal(expected.Absence.DeliberatelyDropped, h.GetProperty("absence").GetProperty("deliberatelyDropped").GetInt32());
+        Assert.Equal(expected.TargetOnly.Unexplained, h.GetProperty("targetOnly").GetProperty("unexplained").GetInt32());
+        Assert.Equal(expected.TargetOnly.Intentional, h.GetProperty("targetOnly").GetProperty("intentional").GetInt32());
     }
 
     private static string ExtractDataIsland(string html)

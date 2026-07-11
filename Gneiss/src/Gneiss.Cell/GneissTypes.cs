@@ -1,10 +1,18 @@
 // Gneiss.Cell — public surface, per CONTRACT.md section 2.
-// Exactly 20 public types (the kb/32 solo-maintainer tripwire, enforced by a reflection test).
+// Budget: 22 public types (raised from 20 by CONTRACT-V01.md section 4 — a conscious, recorded
+// adjustment for AppendResult and AssertionInfo — enforced by a reflection test).
 
 namespace Gneiss.Cell;
 
 /// <summary>Opaque handle to a transaction id assigned by <see cref="GneissLedger.Append"/>.</summary>
 public readonly record struct TxId(long Value);
+
+/// <summary>
+/// The result of <see cref="GneissLedger.Append"/>: the assigned tx and each item's content-derived
+/// aid, in item order (a <see cref="NewDecision"/> contributes its decision-assertion's aid).
+/// CONTRACT-V01.md section 1.
+/// </summary>
+public sealed record AppendResult(TxId Tx, IReadOnlyList<string> Aids);
 
 /// <summary>The write envelope carried by every ledger-mutating call.</summary>
 public sealed record TxEnvelope(string Actor, string Reason, DateTimeOffset Wall, string? Batch = null);
@@ -124,6 +132,22 @@ public sealed record Explanation(
 
 /// <summary>The result of <see cref="GneissLedger.CheckStale"/>.</summary>
 public sealed record StaleReport(bool Stale, IReadOnlyList<string> Causes);
+
+/// <summary>
+/// A single assertion fetched by aid, per <see cref="GneissLedger.GetAssertion"/>. CONTRACT-V01.md
+/// section 3.
+/// </summary>
+public sealed record AssertionInfo(
+    string Aid,
+    long Tx,
+    string Subject,
+    string Predicate,
+    GValue Value,
+    string ClaimKey,
+    string Status,
+    string? Source,
+    string? Method,
+    int? ConfidenceBp);
 
 /// <summary>Errors raised by Gneiss.Cell. <see cref="Code"/> is a short machine-readable tag.</summary>
 public sealed class GneissException : Exception

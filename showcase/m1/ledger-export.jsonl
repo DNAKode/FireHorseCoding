@@ -1,34 +1,34 @@
-{"kind":"tx","id":1,"wall":"2026-07-10T22:15:45.2993807Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
-{"kind":"tx","id":2,"wall":"2026-07-10T22:15:45.2993807Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
-{"kind":"tx","id":3,"wall":"2026-07-10T22:15:45.2993807Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
-{"kind":"tx","id":4,"wall":"2026-07-10T22:15:45.2993807Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
-{"kind":"tx","id":5,"wall":"2026-07-10T22:15:45.2993807Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
-{"kind":"tx","id":6,"wall":"2026-07-10T22:15:45.2993807Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
-{"kind":"tx","id":7,"wall":"2026-07-10T22:15:48.3054154Z","actor":"kodeporter","reason":"kp unit new","batch":null}
-{"kind":"tx","id":8,"wall":"2026-07-10T22:15:48.3319722Z","actor":"kodeporter","reason":"kp unit new","batch":null}
-{"kind":"tx","id":9,"wall":"2026-07-10T22:15:48.3398208Z","actor":"kodeporter","reason":"kp unit new","batch":null}
-{"kind":"tx","id":10,"wall":"2026-07-10T22:15:48.5557886Z","actor":"kodeporter","reason":"kp corr add","batch":null}
-{"kind":"tx","id":11,"wall":"2026-07-10T22:15:48.8071015Z","actor":"kodeporter","reason":"kp corr add","batch":null}
-{"kind":"tx","id":12,"wall":"2026-07-10T22:15:49.0357474Z","actor":"kodeporter","reason":"kp corr add","batch":null}
-{"kind":"tx","id":13,"wall":"2026-07-10T22:15:49.2954818Z","actor":"kodeporter","reason":"kp corr add","batch":null}
-{"kind":"tx","id":14,"wall":"2026-07-10T22:15:49.5503031Z","actor":"kodeporter","reason":"kp corr add","batch":null}
-{"kind":"tx","id":15,"wall":"2026-07-10T22:15:49.8327952Z","actor":"kodeporter","reason":"kp claim add","batch":null}
-{"kind":"tx","id":16,"wall":"2026-07-10T22:15:49.8633968Z","actor":"kodeporter","reason":"kp claim add","batch":null}
-{"kind":"tx","id":17,"wall":"2026-07-10T22:15:50.1386274Z","actor":"kodeporter","reason":"kp claim add","batch":null}
-{"kind":"tx","id":18,"wall":"2026-07-10T22:15:50.1656835Z","actor":"kodeporter","reason":"kp claim add","batch":null}
-{"kind":"tx","id":19,"wall":"2026-07-10T22:15:50.4466801Z","actor":"kodeporter","reason":"kp claim add","batch":null}
-{"kind":"tx","id":20,"wall":"2026-07-10T22:15:50.4737773Z","actor":"kodeporter","reason":"kp claim add","batch":null}
-{"kind":"tx","id":21,"wall":"2026-07-10T22:15:50.9522077Z","actor":"govert","reason":"Verified against rust/src/lib.rs duplicate resolution and the duplicate-two golden.","batch":null}
-{"kind":"tx","id":22,"wall":"2026-07-10T22:15:51.1795196Z","actor":"govert","reason":"Verified against type_value clamp logic and the ratio-clamp-edge golden.","batch":null}
-{"kind":"tx","id":23,"wall":"2026-07-10T22:15:51.8720907Z","actor":"kodeporter","reason":"kp verify run","batch":null}
-{"kind":"tx","id":24,"wall":"2026-07-10T22:15:51.8955821Z","actor":"policy:kp-default@1","reason":"auto-accept: verification green, policy allows kpVerification","batch":null}
-{"kind":"tx","id":25,"wall":"2026-07-10T22:15:53.3435122Z","actor":"kodeporter","reason":"kp advance","batch":null}
-{"kind":"tx","id":26,"wall":"2026-07-10T22:15:53.3659215Z","actor":"kodeporter","reason":"kp advance","batch":null}
-{"kind":"tx","id":27,"wall":"2026-07-10T22:15:53.3751921Z","actor":"kodeporter","reason":"kp advance","batch":null}
-{"kind":"tx","id":28,"wall":"2026-07-10T22:15:53.3830926Z","actor":"kodeporter","reason":"kp advance","batch":null}
-{"kind":"tx","id":29,"wall":"2026-07-10T22:15:53.3916348Z","actor":"kodeporter","reason":"kp advance","batch":null}
-{"kind":"tx","id":30,"wall":"2026-07-10T22:15:53.4182046Z","actor":"kodeporter","reason":"kp advance","batch":null}
-{"kind":"tx","id":31,"wall":"2026-07-10T22:15:53.4267928Z","actor":"kodeporter","reason":"kp advance","batch":null}
+{"kind":"tx","id":1,"wall":"2026-07-11T20:54:03.5146853Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
+{"kind":"tx","id":2,"wall":"2026-07-11T20:54:03.5146853Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
+{"kind":"tx","id":3,"wall":"2026-07-11T20:54:03.5146853Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
+{"kind":"tx","id":4,"wall":"2026-07-11T20:54:03.5146853Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
+{"kind":"tx","id":5,"wall":"2026-07-11T20:54:03.5146853Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
+{"kind":"tx","id":6,"wall":"2026-07-11T20:54:03.5146853Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
+{"kind":"tx","id":7,"wall":"2026-07-11T20:54:06.4409454Z","actor":"kodeporter","reason":"kp unit new","batch":null}
+{"kind":"tx","id":8,"wall":"2026-07-11T20:54:06.4619924Z","actor":"kodeporter","reason":"kp unit new","batch":null}
+{"kind":"tx","id":9,"wall":"2026-07-11T20:54:06.4675343Z","actor":"kodeporter","reason":"kp unit new","batch":null}
+{"kind":"tx","id":10,"wall":"2026-07-11T20:54:06.6610593Z","actor":"kodeporter","reason":"kp corr add","batch":null}
+{"kind":"tx","id":11,"wall":"2026-07-11T20:54:06.8761402Z","actor":"kodeporter","reason":"kp corr add","batch":null}
+{"kind":"tx","id":12,"wall":"2026-07-11T20:54:07.1020454Z","actor":"kodeporter","reason":"kp corr add","batch":null}
+{"kind":"tx","id":13,"wall":"2026-07-11T20:54:07.3369602Z","actor":"kodeporter","reason":"kp corr add","batch":null}
+{"kind":"tx","id":14,"wall":"2026-07-11T20:54:07.5713260Z","actor":"kodeporter","reason":"kp corr add","batch":null}
+{"kind":"tx","id":15,"wall":"2026-07-11T20:54:07.8036704Z","actor":"kodeporter","reason":"kp claim add","batch":null}
+{"kind":"tx","id":16,"wall":"2026-07-11T20:54:07.8258137Z","actor":"kodeporter","reason":"kp claim add","batch":null}
+{"kind":"tx","id":17,"wall":"2026-07-11T20:54:08.0417324Z","actor":"kodeporter","reason":"kp claim add","batch":null}
+{"kind":"tx","id":18,"wall":"2026-07-11T20:54:08.0638514Z","actor":"kodeporter","reason":"kp claim add","batch":null}
+{"kind":"tx","id":19,"wall":"2026-07-11T20:54:08.2721844Z","actor":"kodeporter","reason":"kp claim add","batch":null}
+{"kind":"tx","id":20,"wall":"2026-07-11T20:54:08.2950808Z","actor":"kodeporter","reason":"kp claim add","batch":null}
+{"kind":"tx","id":21,"wall":"2026-07-11T20:54:08.8094025Z","actor":"govert","reason":"Verified against rust/src/lib.rs duplicate resolution and the duplicate-two golden.","batch":null}
+{"kind":"tx","id":22,"wall":"2026-07-11T20:54:09.0089998Z","actor":"govert","reason":"Verified against type_value clamp logic and the ratio-clamp-edge golden.","batch":null}
+{"kind":"tx","id":23,"wall":"2026-07-11T20:54:11.0860856Z","actor":"kodeporter","reason":"kp verify run","batch":null}
+{"kind":"tx","id":24,"wall":"2026-07-11T20:54:11.1176119Z","actor":"policy:kp-default@1","reason":"auto-accept: verification green, policy allows kpVerification","batch":null}
+{"kind":"tx","id":25,"wall":"2026-07-11T20:54:12.5747603Z","actor":"kodeporter","reason":"kp advance","batch":null}
+{"kind":"tx","id":26,"wall":"2026-07-11T20:54:12.5942435Z","actor":"kodeporter","reason":"kp advance","batch":null}
+{"kind":"tx","id":27,"wall":"2026-07-11T20:54:12.6016915Z","actor":"kodeporter","reason":"kp advance","batch":null}
+{"kind":"tx","id":28,"wall":"2026-07-11T20:54:12.6098822Z","actor":"kodeporter","reason":"kp advance","batch":null}
+{"kind":"tx","id":29,"wall":"2026-07-11T20:54:12.6169353Z","actor":"kodeporter","reason":"kp advance","batch":null}
+{"kind":"tx","id":30,"wall":"2026-07-11T20:54:12.6358914Z","actor":"kodeporter","reason":"kp advance","batch":null}
+{"kind":"tx","id":31,"wall":"2026-07-11T20:54:12.6437157Z","actor":"kodeporter","reason":"kp advance","batch":null}
 {"kind":"assrt","aid":"0ca64a0b5a44052fb4a41e23a1202f1dce9282bbd113c9d1e1eddd3d2c2819e4","tx":1,"subj":"kp.behavior","pred":"gneiss.predicate","val":"{\"name\":\"kp.behavior\",\"comparator\":\"exact\",\"tolAbs\":null,\"tolRel\":null,\"stopRung\":6,\"instantSampled\":false,\"sourcePrecedence\":null}","valkind":"json","vfrom":null,"vto":null,"status":"fact","src":null,"meth":null,"conf":null,"ckey":"2bca07d1897d5864017a6bec8af6020142c816a4ea5e4a199304cd1cf8f8e576"}
 {"kind":"assrt","aid":"6fa4d69b28fc5b3ee995798a97504d4fedf646d13e870d190d9a979c256639fc","tx":2,"subj":"kp.evidence.anchor","pred":"gneiss.predicate","val":"{\"name\":\"kp.evidence.anchor\",\"comparator\":\"exact\",\"tolAbs\":null,\"tolRel\":null,\"stopRung\":6,\"instantSampled\":false,\"sourcePrecedence\":null}","valkind":"json","vfrom":null,"vto":null,"status":"fact","src":null,"meth":null,"conf":null,"ckey":"0d80b2697b2a2b53b92fee8c0cc2273559fc5a0471ebabca85b51c03a406cc22"}
 {"kind":"assrt","aid":"37e50818dd014128ddf749b637457cf5274576fa1f3e28df7be214f89b22a561","tx":3,"subj":"kp.correspondence","pred":"gneiss.predicate","val":"{\"name\":\"kp.correspondence\",\"comparator\":\"exact\",\"tolAbs\":null,\"tolRel\":null,\"stopRung\":6,\"instantSampled\":false,\"sourcePrecedence\":null}","valkind":"json","vfrom":null,"vto":null,"status":"fact","src":null,"meth":null,"conf":null,"ckey":"b700f70e9485afe4cba9947096ca442e17fe7c12f939ede2d33d5ae2cc7c6f3d"}
@@ -51,8 +51,8 @@
 {"kind":"assrt","aid":"cb1c43e5ffb6d7ac22df6863577373e21587e4f2f58122a29c3db95738d9f80a","tx":20,"subj":"behavior:parser-core:B3","pred":"kp.behavior","val":"Keys are case-sensitive (Key and key are different keys, not duplicates).","valkind":"text","vfrom":null,"vto":null,"status":"proposed","src":null,"meth":null,"conf":null,"ckey":"f73ab380f5b03218526c9c8d2fb156bc7324a90d2cb0338afc8284aa5305bf8e"}
 {"kind":"assrt","aid":"b93aa821aebad97890b38d56546aa3c6e34935fc4795fa151d89552c61cd87f3","tx":21,"subj":"08e000d2b76c97c949e09a68d7ff26332f87f6e27d3e000cba7347ff79a8cab8","pred":"gneiss.decision","val":"{\"kind\":\"accepts\",\"tgtAid\":\"08e000d2b76c97c949e09a68d7ff26332f87f6e27d3e000cba7347ff79a8cab8\",\"tgtCKey\":null}","valkind":"json","vfrom":null,"vto":null,"status":"fact","src":null,"meth":null,"conf":null,"ckey":"e260cf656d693beb7787a5f0c9397950b789118fa2da43e3a781a1364c3b6197"}
 {"kind":"assrt","aid":"0f7742b831cdaba5078b2f20fd4e77af37dfac38021901f27d1d03ffd4f58998","tx":22,"subj":"cae86b1f8cd75160fe60dcf5b1f923b4e107ca44f1673ca8429d0d5bfbba4276","pred":"gneiss.decision","val":"{\"kind\":\"accepts\",\"tgtAid\":\"cae86b1f8cd75160fe60dcf5b1f923b4e107ca44f1673ca8429d0d5bfbba4276\",\"tgtCKey\":null}","valkind":"json","vfrom":null,"vto":null,"status":"fact","src":null,"meth":null,"conf":null,"ckey":"9953e9d627b030a1fe6b1a56d353a23f3682d907c2596f62f91ebf5446da4194"}
-{"kind":"assrt","aid":"973b15b77769e9b4b5be376b432df3e5c626bce71b3ff4bea6bbd5297ee57493","tx":23,"subj":"verify:parser-core:io-agreement-v1","pred":"kp.verification","val":"{\"verdict\":\"pass\",\"corpusHash\":\"87625e239d18fbabbc02e6e0b8519524ae09c2c29a94c5d5606551c9d31c2a36\",\"sourceBasis\":\"base\",\"targetBasis\":\"base\",\"cases\":28,\"mismatches\":[],\"reportPath\":\"runs/verify-parser-core-io-agreement-v1-87625e239d18.json\"}","valkind":"json","vfrom":null,"vto":null,"status":"proposed","src":null,"meth":null,"conf":null,"ckey":"16b4612431097ae3d9167bd60f707feaa7c0381d926cfceb26c7241d442625fd"}
-{"kind":"assrt","aid":"0684c2d60b29293880c6d6dbc0923fb1674d401ef41d0214aa61516a4adc2b98","tx":24,"subj":"973b15b77769e9b4b5be376b432df3e5c626bce71b3ff4bea6bbd5297ee57493","pred":"gneiss.decision","val":"{\"kind\":\"accepts\",\"tgtAid\":\"973b15b77769e9b4b5be376b432df3e5c626bce71b3ff4bea6bbd5297ee57493\",\"tgtCKey\":null}","valkind":"json","vfrom":null,"vto":null,"status":"fact","src":null,"meth":null,"conf":null,"ckey":"287a64ab520659017f6fc14ca258bec5a10d8f256c5f32b0af5542a144cab87f"}
+{"kind":"assrt","aid":"a2220e26d35ac875a781e4b9eaffa858340e85013881813c018a16e67da2410f","tx":23,"subj":"verify:parser-core:io-agreement-v1","pred":"kp.verification","val":"{\"verdict\":\"pass\",\"corpusHash\":\"87625e239d18fbabbc02e6e0b8519524ae09c2c29a94c5d5606551c9d31c2a36\",\"sourceBasis\":\"base\",\"targetBasis\":\"base\",\"cases\":28,\"mismatches\":[],\"reportPath\":\"runs/verify-parser-core-io-agreement-v1-87625e239d18.json\",\"independence\":\"unknown\"}","valkind":"json","vfrom":null,"vto":null,"status":"proposed","src":null,"meth":null,"conf":null,"ckey":"16b4612431097ae3d9167bd60f707feaa7c0381d926cfceb26c7241d442625fd"}
+{"kind":"assrt","aid":"fce2646dd06e189ce9fbe1417d75e7a3dd30d928caee892661101b6fa6234471","tx":24,"subj":"a2220e26d35ac875a781e4b9eaffa858340e85013881813c018a16e67da2410f","pred":"gneiss.decision","val":"{\"kind\":\"accepts\",\"tgtAid\":\"a2220e26d35ac875a781e4b9eaffa858340e85013881813c018a16e67da2410f\",\"tgtCKey\":null}","valkind":"json","vfrom":null,"vto":null,"status":"fact","src":null,"meth":null,"conf":null,"ckey":"2175147746397de61867fedba342f6f46eec06d30981eac71156722d01901bbe"}
 {"kind":"assrt","aid":"b117dfb947bc892a7918915554f6eb4af840f0b3eac0fb567d8ffbd2dbdeb3fa","tx":25,"subj":"unit:parser-core","pred":"kp.stale","val":"{\"basisLabel\":\"d2\",\"cause\":\"anchor-drift\",\"changedSymbols\":[\"headscan\",\"headscan::parse\",\"headscan::tests\",\"headscan::tests::duplicate_keys_first_wins_and_counted\"]}","valkind":"json","vfrom":null,"vto":null,"status":"fact","src":null,"meth":null,"conf":null,"ckey":"5b020c435b5febbfa68cb4b543868295eae4627001811a63a5668c011a13d561"}
 {"kind":"assrt","aid":"d9a36fd57554ed99cf3e215f903636f55c0dd750cecf6b70eea3b2baa89df662","tx":26,"subj":"verify:parser-core:io-agreement-v1","pred":"kp.stale","val":"{\"basisLabel\":\"d2\",\"cause\":\"anchor-drift\",\"changedSymbols\":[\"headscan\",\"headscan::parse\",\"headscan::tests\",\"headscan::tests::duplicate_keys_first_wins_and_counted\"]}","valkind":"json","vfrom":null,"vto":null,"status":"fact","src":null,"meth":null,"conf":null,"ckey":"0ef94176de5e584593401cb9dd10e929e6d351227cb73770cbb8f7693a3b5c43"}
 {"kind":"assrt","aid":"5acd38a33570681a55c511105c15919978cf4288508542e7897e6946bd8c780b","tx":27,"subj":"corr:corr-adapt-result","pred":"kp.stale","val":"{\"basisLabel\":\"d2\",\"cause\":\"anchor-drift\",\"changedSymbols\":[\"headscan\",\"headscan::parse\",\"headscan::tests\",\"headscan::tests::duplicate_keys_first_wins_and_counted\"]}","valkind":"json","vfrom":null,"vto":null,"status":"fact","src":null,"meth":null,"conf":null,"ckey":"adbfa23dd4224a8cedfedb2844bba496401445e03e483872e551f05ab4fb2f13"}
@@ -62,7 +62,7 @@
 {"kind":"assrt","aid":"6c2726d87b1535f594b0b7b54ff725d8de222bb13b02c0a9e163034855100c0d","tx":31,"subj":"behavior:parser-core:B3","pred":"kp.stale","val":"{\"basisLabel\":\"d2\",\"cause\":\"anchor-drift\",\"changedSymbols\":[\"headscan\",\"headscan::parse\",\"headscan::tests\",\"headscan::tests::duplicate_keys_first_wins_and_counted\"]}","valkind":"json","vfrom":null,"vto":null,"status":"fact","src":null,"meth":null,"conf":null,"ckey":"0f0df7c2d8ffd5ce63ca8d0da0ccb4f75869a1568338ffcf57770083ddc0adef"}
 {"kind":"dec","aid":"b93aa821aebad97890b38d56546aa3c6e34935fc4795fa151d89552c61cd87f3","tx":21,"decisionKind":"accepts","tgtAid":"08e000d2b76c97c949e09a68d7ff26332f87f6e27d3e000cba7347ff79a8cab8","tgtCKey":null}
 {"kind":"dec","aid":"0f7742b831cdaba5078b2f20fd4e77af37dfac38021901f27d1d03ffd4f58998","tx":22,"decisionKind":"accepts","tgtAid":"cae86b1f8cd75160fe60dcf5b1f923b4e107ca44f1673ca8429d0d5bfbba4276","tgtCKey":null}
-{"kind":"dec","aid":"0684c2d60b29293880c6d6dbc0923fb1674d401ef41d0214aa61516a4adc2b98","tx":24,"decisionKind":"accepts","tgtAid":"973b15b77769e9b4b5be376b432df3e5c626bce71b3ff4bea6bbd5297ee57493","tgtCKey":null}
+{"kind":"dec","aid":"fce2646dd06e189ce9fbe1417d75e7a3dd30d928caee892661101b6fa6234471","tx":24,"decisionKind":"accepts","tgtAid":"a2220e26d35ac875a781e4b9eaffa858340e85013881813c018a16e67da2410f","tgtCKey":null}
 {"kind":"just","aid":"08e000d2b76c97c949e09a68d7ff26332f87f6e27d3e000cba7347ff79a8cab8","inputAid":"3f2467d94b3435074957306be84aae31c1f460c0dc82ce6e30b58ffa46238b08","ruleVer":null,"role":"evidence"}
 {"kind":"just","aid":"cae86b1f8cd75160fe60dcf5b1f923b4e107ca44f1673ca8429d0d5bfbba4276","inputAid":"7590f9dca9713acd7e1dd490b7e464b5c9d48905103d0077c17ef2fe22de1285","ruleVer":null,"role":"evidence"}
 {"kind":"just","aid":"cb1c43e5ffb6d7ac22df6863577373e21587e4f2f58122a29c3db95738d9f80a","inputAid":"f8d688aec6c560419ebdf548812d7367d15332a2151a61e2d7c202a326bf4465","ruleVer":null,"role":"evidence"}

@@ -109,10 +109,14 @@ internal static class AtlasHtmlRenderer
         sb.Append("<nav class=\"health\">\n");
         sb.Append(TileLink("mapped", h.Mapped, anchor: "source-tree"));
         sb.Append(TileLink("corresponded", h.Corresponded, tab: "tab-corr"));
+        // CONTRACT-M15.md §1.7 Health v2: candidates/absence/targetOnly are minimum compile/data
+        // plumbing here — the full Atlas v2 imperfection rendering (drill-downs, badges) is a
+        // later increment's visual work (CONTRACT-M15.md §6).
+        sb.Append(TileLink("candidates", h.Candidates, tab: "tab-corr"));
         sb.Append(TileLink("implemented", h.Implemented, tab: "tab-units"));
         sb.Append(TileLink("verified", h.Verified, tab: "tab-runs"));
         sb.Append(TileLink("stale", h.Stale, tab: "tab-claims"));
-        sb.Append(TileLink("unknown", h.Unknown, anchor: "source-tree"));
+        sb.Append(TileLink("unknown", h.Absence.Unknown, anchor: "source-tree"));
         sb.Append("</nav>\n");
         return sb.ToString();
     }

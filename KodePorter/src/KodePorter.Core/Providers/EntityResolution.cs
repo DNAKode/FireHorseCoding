@@ -53,7 +53,9 @@ internal static class EntityResolution
             string? parentId = e.ParentSymbolPath != null && symbolPathToId.TryGetValue(e.ParentSymbolPath, out var pid)
                 ? pid
                 : null;
-            result.Add(new Entity(id, basisId, e.Kind, e.Name, e.SymbolPath, e.File, e.StartLine, e.EndLine, e.ContentHash, parentId));
+            // CONTRACT-M15.md §1.1: absent resolution/isTest -> clean/false.
+            result.Add(new Entity(id, basisId, e.Kind, e.Name, e.SymbolPath, e.File, e.StartLine, e.EndLine, e.ContentHash, parentId,
+                Resolution: e.Resolution ?? "clean", IsTest: e.IsTest ?? false));
         }
 
         return result;

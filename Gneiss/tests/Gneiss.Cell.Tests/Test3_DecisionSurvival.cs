@@ -20,7 +20,7 @@ public sealed class Test3_DecisionSurvival
         var txH1 = l.Append(TestHelpers.Env("matcher", "propose link v1", T0), new IAppendItem[]
         {
             new NewAssertion("EntityX", "sameAs", GValue.Entity("EntityY"), Proposed: true, Method: "matcherV1", ConfidenceBp: 8000),
-        }).Value;
+        }).Tx.Value;
         var ckey = TestHelpers.FindCKey(l, txH1, "EntityX", "sameAs");
         var aidH1 = TestHelpers.FindAid(l, txH1, "EntityX", "sameAs");
 
@@ -39,7 +39,7 @@ public sealed class Test3_DecisionSurvival
         var txH2 = l.Append(TestHelpers.Env("matcher", "propose link v2", T0), new IAppendItem[]
         {
             new NewAssertion("EntityX", "sameAs", GValue.Entity("EntityY"), Proposed: true, Method: "matcherV2", ConfidenceBp: 7000),
-        }).Value;
+        }).Tx.Value;
         var aidH2 = TestHelpers.FindAid(l, txH2, "EntityX", "sameAs");
         Assert.NotEqual(aidH1, aidH2);
         Assert.Equal(ckey, TestHelpers.FindCKey(l, txH2, "EntityX", "sameAs"));
@@ -59,7 +59,7 @@ public sealed class Test3_DecisionSurvival
         var txH3 = l.Append(TestHelpers.Env("matcher", "propose link v1", T0), new IAppendItem[]
         {
             new NewAssertion("EntityZ", "sameAs", GValue.Entity("EntityW"), Proposed: true, Method: "matcherV1", ConfidenceBp: 9000),
-        }).Value;
+        }).Tx.Value;
         var ckey = TestHelpers.FindCKey(l, txH3, "EntityZ", "sameAs");
         var aidH3 = TestHelpers.FindAid(l, txH3, "EntityZ", "sameAs");
 
@@ -80,7 +80,7 @@ public sealed class Test3_DecisionSurvival
         var txH4 = l.Append(TestHelpers.Env("matcher", "propose link v2", T0), new IAppendItem[]
         {
             new NewAssertion("EntityZ", "sameAs", GValue.Entity("EntityW"), Proposed: true, Method: "matcherV2", ConfidenceBp: 9500),
-        }).Value;
+        }).Tx.Value;
         var aidH4 = TestHelpers.FindAid(l, txH4, "EntityZ", "sameAs");
 
         var view2 = l.Ask("RejSurvival", new Question(ClaimKey: ckey));

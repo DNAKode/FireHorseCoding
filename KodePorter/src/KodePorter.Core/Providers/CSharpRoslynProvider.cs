@@ -48,15 +48,23 @@ public sealed class CSharpRoslynProvider
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         // Compilation diagnostics are counted, never fatal (map-first principle, CONTRACT.md §3).
-        int errorDiagnosticCount = compilation.GetDiagnostics()
-            .Count(d => d.Severity == DiagnosticSeverity.Error);
+        var diagnostics = compilation.GetDiagnostics();
+        int errorDiagnosticCount = diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error);
+
+        // CONTRACT-M15.md §1.1: entities whose file produced >=1 Error-severity diagnostic ->
+        // resolution "degraded". Scoped per-tree (per-file), not import-wide.
+        var treesWithErrors = diagnostics
+            .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree is not null)
+            .Select(d => d.Location.SourceTree!)
+            .ToHashSet();
 
         var candidates = new List<DumpEntity>();
         foreach (var tree in trees)
         {
             var semanticModel = compilation.GetSemanticModel(tree);
             string relativeFile = TreeHasher.ToRelativeForwardSlash(root, tree.FilePath);
-            WalkTree(tree.GetRoot(), tree, semanticModel, relativeFile, candidates);
+            string resolution = treesWithErrors.Contains(tree) ? "degraded" : "clean";
+            WalkTree(tree.GetRoot(), tree, semanticModel, relativeFile, resolution, candidates);
         }
 
         var deduplicated = EntityResolution.SortAndDeduplicate(candidates);
@@ -97,6 +105,7 @@ public sealed class CSharpRoslynProvider
         SyntaxTree tree,
         SemanticModel semanticModel,
         string relativeFile,
+        string resolution,
         List<DumpEntity> candidates)
     {
         foreach (var descendant in node.DescendantNodes())
@@ -104,28 +113,28 @@ public sealed class CSharpRoslynProvider
             switch (descendant)
             {
                 case BaseNamespaceDeclarationSyntax namespaceDecl:
-                    AddEntity(candidates, "namespace", semanticModel.GetDeclaredSymbol(namespaceDecl), namespaceDecl, tree, relativeFile);
+                    AddEntity(candidates, "namespace", semanticModel.GetDeclaredSymbol(namespaceDecl), namespaceDecl, tree, relativeFile, resolution);
                     break;
                 case RecordDeclarationSyntax recordDecl:
-                    AddEntity(candidates, "record", semanticModel.GetDeclaredSymbol(recordDecl), recordDecl, tree, relativeFile);
+                    AddEntity(candidates, "record", semanticModel.GetDeclaredSymbol(recordDecl), recordDecl, tree, relativeFile, resolution);
                     break;
                 case ClassDeclarationSyntax classDecl:
-                    AddEntity(candidates, "class", semanticModel.GetDeclaredSymbol(classDecl), classDecl, tree, relativeFile);
+                    AddEntity(candidates, "class", semanticModel.GetDeclaredSymbol(classDecl), classDecl, tree, relativeFile, resolution);
                     break;
                 case StructDeclarationSyntax structDecl:
-                    AddEntity(candidates, "struct", semanticModel.GetDeclaredSymbol(structDecl), structDecl, tree, relativeFile);
+                    AddEntity(candidates, "struct", semanticModel.GetDeclaredSymbol(structDecl), structDecl, tree, relativeFile, resolution);
                     break;
                 case EnumDeclarationSyntax enumDecl:
-                    AddEntity(candidates, "enum", semanticModel.GetDeclaredSymbol(enumDecl), enumDecl, tree, relativeFile);
+                    AddEntity(candidates, "enum", semanticModel.GetDeclaredSymbol(enumDecl), enumDecl, tree, relativeFile, resolution);
                     break;
                 case EnumMemberDeclarationSyntax enumMemberDecl:
-                    AddEntity(candidates, "enummember", semanticModel.GetDeclaredSymbol(enumMemberDecl), enumMemberDecl, tree, relativeFile);
+                    AddEntity(candidates, "enummember", semanticModel.GetDeclaredSymbol(enumMemberDecl), enumMemberDecl, tree, relativeFile, resolution);
                     break;
                 case MethodDeclarationSyntax methodDecl:
-                    AddEntity(candidates, "method", semanticModel.GetDeclaredSymbol(methodDecl), methodDecl, tree, relativeFile);
+                    AddEntity(candidates, "method", semanticModel.GetDeclaredSymbol(methodDecl), methodDecl, tree, relativeFile, resolution);
                     break;
                 case PropertyDeclarationSyntax propertyDecl:
-                    AddEntity(candidates, "property", semanticModel.GetDeclaredSymbol(propertyDecl), propertyDecl, tree, relativeFile);
+                    AddEntity(candidates, "property", semanticModel.GetDeclaredSymbol(propertyDecl), propertyDecl, tree, relativeFile, resolution);
                     break;
                 case FieldDeclarationSyntax fieldDecl:
                     // A single `FieldDeclarationSyntax` can declare several variables
@@ -135,7 +144,7 @@ public sealed class CSharpRoslynProvider
                     foreach (var variable in fieldDecl.Declaration.Variables)
                     {
                         var fieldSymbol = semanticModel.GetDeclaredSymbol(variable);
-                        AddEntity(candidates, "field", fieldSymbol, fieldDecl, tree, relativeFile);
+                        AddEntity(candidates, "field", fieldSymbol, fieldDecl, tree, relativeFile, resolution);
                     }
                     break;
             }
@@ -148,7 +157,8 @@ public sealed class CSharpRoslynProvider
         ISymbol? symbol,
         SyntaxNode spanNode,
         SyntaxTree tree,
-        string relativeFile)
+        string relativeFile,
+        string resolution)
     {
         if (symbol is null)
             return;
@@ -160,6 +170,10 @@ public sealed class CSharpRoslynProvider
         string contentText = spanNode.ToString().Replace("\r\n", "\n");
         string contentHash = Sha256Util.HexOfUtf8(contentText);
 
+        // CONTRACT-M15.md §1.1: is_test = 1 when the file path contains a tests/ or test/
+        // segment, or the containing type name ends with "Tests".
+        bool isTest = FileHasTestSegment(relativeFile) || ContainingOrOwnTypeIsTestNamed(symbol);
+
         candidates.Add(new DumpEntity(
             kind,
             symbol.Name,
@@ -168,7 +182,26 @@ public sealed class CSharpRoslynProvider
             lineSpan.StartLinePosition.Line + 1,
             lineSpan.EndLinePosition.Line + 1,
             contentHash,
-            parentSymbolPath));
+            parentSymbolPath,
+            Resolution: resolution,
+            IsTest: isTest));
+    }
+
+    private static bool FileHasTestSegment(string relativeFile) =>
+        relativeFile.Split('/').Any(seg =>
+            seg.Equals("tests", StringComparison.OrdinalIgnoreCase) ||
+            seg.Equals("test", StringComparison.OrdinalIgnoreCase));
+
+    private static bool ContainingOrOwnTypeIsTestNamed(ISymbol symbol)
+    {
+        INamedTypeSymbol? type = symbol as INamedTypeSymbol ?? symbol.ContainingType;
+        while (type is not null)
+        {
+            if (type.Name.EndsWith("Tests", StringComparison.Ordinal))
+                return true;
+            type = type.ContainingType;
+        }
+        return false;
     }
 
     private static string FormatSymbolPath(ISymbol symbol)

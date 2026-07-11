@@ -3,6 +3,11 @@ using System.Text;
 namespace KodePorter.Core.Domain;
 
 /// <summary>One correspondences.yaml entry (CONTRACT.md §4).</summary>
+/// <param name="Provenance">CONTRACT-M15.md §1.3: `candidate|asserted`. `candidate` = machine-
+/// inferred, unreviewed (never counted as *corresponded* in health — counted separately as
+/// *candidates*). `verified` is never stored here — it is DERIVED for display from an accepted
+/// kp.verification claim covering the correspondence's unit+criterion. Default `asserted` for
+/// rows written before this field existed.</param>
 public sealed record Correspondence(
     string Id,
     string Type, // implements | maps-to | adapts | diverges | covers
@@ -13,7 +18,8 @@ public sealed record Correspondence(
     string? Criterion, // io-agreement-v1 | api-shape-v1 | error-semantics-v1 | null
     string? Note,
     string? ClaimAid,
-    bool Stale = false);
+    bool Stale = false,
+    string Provenance = "asserted");
 
 public static class CorrespondencesYaml
 {
@@ -41,6 +47,7 @@ public static class CorrespondencesYaml
                 sb.Append("  criterion: ").Append(c.Criterion is null ? "null" : YamlScalarCodec.Quote(c.Criterion)).Append('\n');
                 sb.Append("  note: ").Append(c.Note is null ? "null" : YamlScalarCodec.Quote(c.Note)).Append('\n');
                 sb.Append("  claimAid: ").Append(c.ClaimAid is null ? "null" : YamlScalarCodec.Quote(c.ClaimAid)).Append('\n');
+                sb.Append("  provenance: ").Append(YamlScalarCodec.Quote(c.Provenance)).Append('\n');
                 if (c.Stale)
                     sb.Append("  stale: true\n");
             }
@@ -90,9 +97,10 @@ public static class CorrespondencesYaml
             string? divergenceKind = null, criterion = null, note = null, claimAid = null;
             AnchorRef? source = null, target = null;
             bool stale = false;
+            string provenance = "asserted"; // CONTRACT-M15.md §1.3: default for rows written before this field existed.
 
             var (firstKey, firstVal) = YamlLine.SplitKeyValue(lines[i][2..]);
-            ApplyField(firstKey, firstVal, ref id, ref type, ref unit, ref divergenceKind, ref criterion, ref note, ref claimAid, ref stale);
+            ApplyField(firstKey, firstVal, ref id, ref type, ref unit, ref divergenceKind, ref criterion, ref note, ref claimAid, ref stale, ref provenance);
             i++;
 
             while (i < lines.Count && lines[i].StartsWith("  ") && !lines[i].StartsWith("- "))
@@ -120,11 +128,11 @@ public static class CorrespondencesYaml
                     continue;
                 }
 
-                ApplyField(key, value, ref id, ref type, ref unit, ref divergenceKind, ref criterion, ref note, ref claimAid, ref stale);
+                ApplyField(key, value, ref id, ref type, ref unit, ref divergenceKind, ref criterion, ref note, ref claimAid, ref stale, ref provenance);
                 i++;
             }
 
-            result.Add(new Correspondence(id, type, divergenceKind, unit, source, target, criterion, note, claimAid, stale));
+            result.Add(new Correspondence(id, type, divergenceKind, unit, source, target, criterion, note, claimAid, stale, provenance));
         }
 
         return result;
@@ -133,7 +141,7 @@ public static class CorrespondencesYaml
     private static void ApplyField(
         string key, string rawValue,
         ref string id, ref string type, ref string unit,
-        ref string? divergenceKind, ref string? criterion, ref string? note, ref string? claimAid, ref bool stale)
+        ref string? divergenceKind, ref string? criterion, ref string? note, ref string? claimAid, ref bool stale, ref string provenance)
     {
         string? val = rawValue == "null" ? null : YamlScalarCodec.Unquote(rawValue);
         switch (key)
@@ -146,6 +154,7 @@ public static class CorrespondencesYaml
             case "note": note = val; break;
             case "claimAid": claimAid = val; break;
             case "stale": stale = rawValue == "true"; break;
+            case "provenance": provenance = val ?? "asserted"; break;
         }
     }
 }

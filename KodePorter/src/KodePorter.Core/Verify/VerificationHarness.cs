@@ -15,6 +15,8 @@ namespace KodePorter.Core.Verify;
 public sealed record VerifyCaseResult(string Name, bool Match, string? SourceResultJson, string? TargetResultJson, string? Reason = null);
 
 /// <summary>The result of one `kp verify run` (CONTRACT.md §6).</summary>
+/// <param name="Independence">CONTRACT-M15.md §1.6: `independently-derived |
+/// implementation-coupled | unknown`, caller-attested via `--independence`. Default `unknown`.</param>
 public sealed record VerifyRunResult(
     string Unit,
     string Criterion,
@@ -27,7 +29,8 @@ public sealed record VerifyRunResult(
     string Verdict, // pass | fail
     string ReportJsonPath,
     string ReportMdPath,
-    string ReportRelativePath); // workspace-relative, forward-slashed; content-addressed, embedded in the claim value (never the absolute ReportJsonPath)
+    string ReportRelativePath, // workspace-relative, forward-slashed; content-addressed, embedded in the claim value (never the absolute ReportJsonPath)
+    string Independence = "unknown");
 
 /// <summary>
 /// K4-lite differential verification (CONTRACT.md §6, io-agreement-v1): runs source-cmd and
@@ -45,7 +48,8 @@ public static class VerificationHarness
         string targetCmd,
         string sourceBasisLabel,
         string targetBasisLabel,
-        DateTimeOffset timestamp)
+        DateTimeOffset timestamp,
+        string independence = "unknown")
     {
         string cwd = Directory.GetParent(Path.GetFullPath(workspaceDir))?.FullName ?? Path.GetFullPath(workspaceDir);
         string casesContent = File.ReadAllText(casesFilePath);
@@ -91,10 +95,10 @@ public static class VerificationHarness
         string rerunCommand = $"kp verify run --workspace {workspaceDir} --unit {unitId} --cases {casesFilePath} " +
             $"--source-cmd \"{sourceCmd}\" --target-cmd \"{targetCmd}\"";
 
-        WriteJsonReport(jsonPath, unitId, criterion, corpusHash, sourceCmd, targetCmd, sourceBasisLabel, targetBasisLabel, results, verdict);
+        WriteJsonReport(jsonPath, unitId, criterion, corpusHash, sourceCmd, targetCmd, sourceBasisLabel, targetBasisLabel, results, verdict, independence);
         WriteMarkdownNotebook(mdPath, unitId, criterion, casesFilePath, sourceCmd, targetCmd, sourceBasisLabel, targetBasisLabel, results, verdict, rerunCommand, timestamp);
 
-        return new VerifyRunResult(unitId, criterion, corpusHash, sourceCmd, targetCmd, sourceBasisLabel, targetBasisLabel, results, verdict, jsonPath, mdPath, reportRelativePath);
+        return new VerifyRunResult(unitId, criterion, corpusHash, sourceCmd, targetCmd, sourceBasisLabel, targetBasisLabel, results, verdict, jsonPath, mdPath, reportRelativePath, independence);
     }
 
     /// <summary>
@@ -117,11 +121,14 @@ public static class VerificationHarness
             run.TargetBasis,
             run.Results.Count,
             run.Results.Where(r => !r.Match).Select(r => r.Name).ToList(),
-            run.ReportRelativePath);
+            run.ReportRelativePath,
+            run.Independence);
 
         string aid = binding.ProposeVerificationClaim(run.Unit, run.Criterion, value, evidenceAids, actor, reason);
 
-        if (run.Verdict == "pass" && PolicyEngine.AllowsAutoAccept(policy, "kpVerification"))
+        // CONTRACT-M15.md §1.6: policy.yaml's optional requiredIndependence floor gates
+        // auto-accept alongside the existing autoAccept flag; absent -> no added constraint.
+        if (run.Verdict == "pass" && PolicyEngine.AllowsAutoAccept(policy, "kpVerification", run.Independence))
         {
             binding.PolicyAutoAccept(aid, policy.Name, policy.Version, "auto-accept: verification green, policy allows kpVerification");
         }
@@ -194,7 +201,7 @@ public static class VerificationHarness
 
     private static void WriteJsonReport(
         string path, string unitId, string criterion, string corpusHash, string sourceCmd, string targetCmd,
-        string sourceBasis, string targetBasis, IReadOnlyList<VerifyCaseResult> results, string verdict)
+        string sourceBasis, string targetBasis, IReadOnlyList<VerifyCaseResult> results, string verdict, string independence)
     {
         var resultsArray = new JsonArray();
         foreach (var r in results)
@@ -225,6 +232,7 @@ public static class VerificationHarness
             ["targetBasis"] = targetBasis,
             ["results"] = resultsArray,
             ["verdict"] = verdict,
+            ["independence"] = independence,
         };
 
         string json = report.ToJsonString(new JsonSerializerOptions { WriteIndented = true });

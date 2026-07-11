@@ -18,7 +18,7 @@ public sealed class Test6_AppendOnly
         string aid;
         using (var l = GneissLedger.Create(path.Path))
         {
-            var tx = l.Append(TestHelpers.Env("x", "seed", T0), new IAppendItem[] { new NewAssertion("Thing", "p", GValue.Text("v1")) }).Value;
+            var tx = l.Append(TestHelpers.Env("x", "seed", T0), new IAppendItem[] { new NewAssertion("Thing", "p", GValue.Text("v1")) }).Tx.Value;
             aid = TestHelpers.FindAid(l, tx, "Thing", "p");
         } // close so a second connection is not blocked by the writer lock.
 

@@ -9,12 +9,15 @@ using KodePorter.Core.Store;
 namespace KodePorter.Core.Advance;
 
 /// <summary>The result of one `kp advance` (CONTRACT.md §7).</summary>
+/// <param name="ContinuityCandidatesCreated">Count of continuity_candidate rows written this run
+/// (CONTRACT-M15.md §1.2: `name-kind` heuristic over this side's removed/added entity pairs).</param>
 public sealed record AdvanceReport(
     BasisDiffResult Diff,
     IReadOnlyList<string> StaleCorrespondenceIds,
     IReadOnlyList<string> StaleUnitIds,
     IReadOnlyList<string> StaleClaimSubjects,
-    string ReportPath);
+    string ReportPath,
+    int ContinuityCandidatesCreated = 0);
 
 /// <summary>
 /// K6-lite advance + staleness (CONTRACT.md §7): pins and imports a new basis, diffs it against
@@ -56,6 +59,31 @@ public static class AdvanceService
         var diff = previousBasis is null
             ? new BasisDiffResult([], [], [])
             : BasisDiffService.Diff(store, previousBasis.Id, newBasis.Id);
+
+        // ---- Continuity candidates (CONTRACT-M15.md §1.2) --------------------------------------
+        // Name-kind heuristic ONLY (K-D3 discipline: "nothing cleverer"): for each (removed,
+        // added) pair within this side where kind matches and name matches exactly, record a
+        // never-auto-confirmed candidate row. Surfaced in the Atlas, not acted on here.
+        int continuityCandidatesCreated = 0;
+        if (previousBasis is not null && (diff.Removed.Count > 0 && diff.Added.Count > 0))
+        {
+            var previousEntitiesById = store.GetEntities(previousBasis.Id).ToDictionary(e => e.Id);
+            var newEntitiesById = store.GetEntities(newBasis.Id).ToDictionary(e => e.Id);
+            var removedEntities = diff.Removed.Select(d => previousEntitiesById[d.EntityId]).OrderBy(e => e.SymbolPath, StringComparer.Ordinal).ToList();
+            var addedEntities = diff.Added.Select(d => newEntitiesById[d.EntityId]).OrderBy(e => e.SymbolPath, StringComparer.Ordinal).ToList();
+
+            var continuityCandidates = new List<Model.ContinuityCandidate>();
+            foreach (var removed in removedEntities)
+            {
+                foreach (var added in addedEntities.Where(a => a.Kind == removed.Kind && a.Name == removed.Name))
+                    continuityCandidates.Add(new Model.ContinuityCandidate(previousBasis.Id, newBasis.Id, removed.Id, added.Id, "name-kind"));
+            }
+            if (continuityCandidates.Count > 0)
+            {
+                store.InsertContinuityCandidates(continuityCandidates);
+                continuityCandidatesCreated = continuityCandidates.Count;
+            }
+        }
 
         // Anchor-drift signal (CONTRACT.md §7 step 1/2): a symbolPath whose current content_hash
         // differs from what an anchor recorded, or that has disappeared entirely.
@@ -178,7 +206,7 @@ public static class AdvanceService
         string reportPath = Path.Combine(runsDir, $"advance-{label}.md");
         WriteReport(reportPath, side, label, diff, staleCorrIds, staleUnitIds, staleClaimSubjects);
 
-        return new AdvanceReport(diff, staleCorrIds, staleUnitIds, staleClaimSubjects, reportPath);
+        return new AdvanceReport(diff, staleCorrIds, staleUnitIds, staleClaimSubjects, reportPath, continuityCandidatesCreated);
     }
 
     private static void WriteReport(

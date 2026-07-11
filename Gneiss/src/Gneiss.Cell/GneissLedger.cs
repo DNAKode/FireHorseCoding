@@ -73,24 +73,25 @@ public sealed class GneissLedger : IDisposable
 
     // ---- Append -------------------------------------------------------------------------------
 
-    public TxId Append(TxEnvelope env, IReadOnlyList<IAppendItem> items)
+    public AppendResult Append(TxEnvelope env, IReadOnlyList<IAppendItem> items)
     {
         using var tx = _conn.BeginTransaction();
         try
         {
             long txId = InsertTxRow(env, tx);
 
+            var aids = new List<string>(items.Count);
             int ordinal = 0;
             foreach (var item in items)
             {
                 switch (item)
                 {
                     case NewAssertion na:
-                        InsertAssertion(txId, ordinal, na, tx);
+                        aids.Add(InsertAssertion(txId, ordinal, na, tx));
                         ordinal++;
                         break;
                     case NewDecision nd:
-                        InsertDecision(txId, ordinal, nd, tx);
+                        aids.Add(InsertDecision(txId, ordinal, nd, tx));
                         ordinal++;
                         break;
                     default:
@@ -99,7 +100,7 @@ public sealed class GneissLedger : IDisposable
             }
 
             tx.Commit();
-            return new TxId(txId);
+            return new AppendResult(new TxId(txId), aids);
         }
         catch
         {
@@ -120,7 +121,7 @@ public sealed class GneissLedger : IDisposable
         return (long)cmd.ExecuteScalar()!;
     }
 
-    private void InsertAssertion(long txId, int ordinal, NewAssertion na, SqliteTransaction tx)
+    private string InsertAssertion(long txId, int ordinal, NewAssertion na, SqliteTransaction tx)
     {
         var vfrom = na.ValidFrom.HasValue ? Hashing.FormatWall(na.ValidFrom.Value) : null;
         var vto = na.ValidTo.HasValue ? Hashing.FormatWall(na.ValidTo.Value) : null;
@@ -166,9 +167,11 @@ public sealed class GneissLedger : IDisposable
                 cmd.ExecuteNonQuery();
             }
         }
+
+        return aid;
     }
 
-    private void InsertDecision(long txId, int ordinal, NewDecision nd, SqliteTransaction tx)
+    private string InsertDecision(long txId, int ordinal, NewDecision nd, SqliteTransaction tx)
     {
         bool hasAid = nd.TargetAid is not null;
         bool hasCKey = nd.TargetClaimKey is not null;
@@ -230,6 +233,8 @@ public sealed class GneissLedger : IDisposable
             cmd.Parameters.AddWithValue("$tgtckey", (object?)nd.TargetClaimKey ?? DBNull.Value);
             cmd.ExecuteNonQuery();
         }
+
+        return aid;
     }
 
     private static string ComputeCKey(string subj, string pred, string? vfrom, string? vto) =>
@@ -324,16 +329,20 @@ public sealed class GneissLedger : IDisposable
         var resultJson = ResultCodec.BuildResultJson(accepted, defeated, contested, missing);
         var resultHash = Hashing.Sha256Hex(resultJson);
 
-        var receiptId = Guid.NewGuid().ToString("n");
         var questionJson = CanonicalJsonWriter.ToJson(w => w.Obj(o => o
             .FieldNullableString("subject", q.Subject)
             .FieldNullableString("predicate", q.Predicate)
             .FieldNullableString("claimKey", q.ClaimKey)));
 
+        // Deterministic, content-derived receipt id (CONTRACT-V01.md section 2): repeated identical
+        // asks produce the same id, so the row upserts below instead of accumulating duplicates.
+        var receiptId = Hashing.Sha256Hex(
+            $"{ctx.ContextHash}|{ctx.DataCut.ToString(CultureInfo.InvariantCulture)}|{ctx.DefCut.ToString(CultureInfo.InvariantCulture)}|{questionJson}|{resultHash}");
+
         using (var cmd = _conn.CreateCommand())
         {
             cmd.CommandText = """
-                INSERT INTO receipt (id, question, ctx_name, ctx_hash, data_cut, def_cut, consumed, result_hash, created_wall)
+                INSERT OR REPLACE INTO receipt (id, question, ctx_name, ctx_hash, data_cut, def_cut, consumed, result_hash, created_wall)
                 VALUES ($id, $question, $ctxname, $ctxhash, $datacut, $defcut, $consumed, $resulthash, $created)
                 """;
             cmd.Parameters.AddWithValue("$id", receiptId);
@@ -537,6 +546,34 @@ public sealed class GneissLedger : IDisposable
         }
 
         return new Explanation(aid, status, defeatedBy, inputs, ruleVersions, decisions);
+    }
+
+    // ---- GetAssertion ---------------------------------------------------------------------------
+
+    /// <summary>Fetches a single assertion by aid (CONTRACT-V01.md section 3), independent of any
+    /// context/fold; null if no assertion with that aid exists.</summary>
+    public AssertionInfo? GetAssertion(string aid)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT aid, tx, subj, pred, val, valkind, ckey, status, src, meth, conf FROM assrt WHERE aid = $aid";
+        cmd.Parameters.AddWithValue("$aid", aid);
+        using var reader = cmd.ExecuteReader();
+        if (!reader.Read())
+        {
+            return null;
+        }
+
+        return new AssertionInfo(
+            Aid: reader.GetString(0),
+            Tx: reader.GetInt64(1),
+            Subject: reader.GetString(2),
+            Predicate: reader.GetString(3),
+            Value: new GValue(reader.GetString(5), reader.GetString(4)),
+            ClaimKey: reader.GetString(6),
+            Status: reader.GetString(7),
+            Source: reader.IsDBNull(8) ? null : reader.GetString(8),
+            Method: reader.IsDBNull(9) ? null : reader.GetString(9),
+            ConfidenceBp: reader.IsDBNull(10) ? null : reader.GetInt32(10));
     }
 
     // ---- CheckStale -----------------------------------------------------------------------------
