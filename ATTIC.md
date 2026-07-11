@@ -6,8 +6,8 @@ promotion trigger. Reviewed at every gate.
 | Item | Parked because | Promotion trigger |
 |---|---|---|
 | `sprout`/`commit` (what-if worlds) | G-A1: most speculative mechanism; slice needs proposals+decisions only | a domain demonstrates transactional what-if need; Phase 4 |
-| `import`/federation verbs, watermarks | G-A1: off-spine `[F]` | second ledger exists; A3-shaped need |
-| Seals, purge, amnesia drill (E4) | this increment ends at the Atlas; schema stubs present | M2 / sub-gate S3 |
+| `import`/federation verbs, watermarks | G-A1: off-spine `[F]` | ~~second ledger exists; A3-shaped need~~ **trigger now visible (2026-07-11): the three-tier topology — projects importing pinned knowledge from the KodePorter meta-ledger — is the A3-shaped need; promote when the meta-ledger bootstraps** |
+| Seals, purge, amnesia drill (E4) | this increment ends at the Atlas; schema stubs present | M2 / sub-gate S3 — **and now a product path (2026-07-11): a one-shot port seals its map; the seal is the port's receipt** |
 | Grades beyond constant `grounded`; coverage map; `absent_closed`/closure declarations | depend on E4 | M2 |
 | Gneiss Lens (E2b) | steward scoped this increment to the KodePorter Atlas | next Gneiss increment (M1 completion) |
 | `gn` CLI | facade suffices for KodePorter in-proc; conformance kit is the real consumer | E5 conformance kit or first non-KodePorter consumer |

@@ -236,9 +236,14 @@ Shared Slice Zero fixture with escalation-only ground-truth edits; `Gneiss.Facad
 
 The M1 drive landed S1 plus the S2/S3 mechanics ahead of schedule (see
 [showcase/m1/NOTEBOOK.md](../showcase/m1/NOTEBOOK.md)); this section re-points the next two
-increments per the steward's positioning steer: KodePorter is the explicit representation of a
-system mapping — including the imperfections of the mapping itself — and orchestration methods are
-consumers, recorded separately in [orchestration/PLAYBOOK.md](../orchestration/PLAYBOOK.md).
+increments per the steward's positioning steer, extended 2026-07-11 to the full service
+realization (charter §14): KodePorter is **two layers, one product** — the representation layer
+(the map with the typed imperfections of the mapping itself) and the skills & guidance layer
+(porting subtleties + agent-management knowledge, seeded by
+[guidance/PLAYBOOK.md](guidance/PLAYBOOK.md)) — delivered as an installable kit + knowledge site,
+with a flagship corpus gathering porting and agent-coding signal, everything managed in Gneiss at
+three tiers (per-port, KodePorter meta-ledger, FireHorseCoding governance ledger), open source
+(MIT).
 
 ### M1.5 — The imperfection vocabulary (next increment)
 
@@ -257,9 +262,18 @@ each rendered as a first-class visual state in the Atlas:
 
 Also in scope: `kp note` (the two-tier capture verb, chartered K-A8, currently unwired), health
 `unknown` filtered by kind/test-ness, Gneiss facade v0.1 (per-item aids from `Append`,
-deterministic receipt ids, fetch-by-aid), and the THE-PAGE findings annex ratifying the grounded
-pairwise conflict semantics and consumed-set closure (steward sign-off required — it touches
-"fold, not search").
+deterministic receipt ids, fetch-by-aid), the THE-PAGE findings annex for the grounded pairwise
+conflict semantics and consumed-set closure (**ratified by the steward 2026-07-11**, with the
+constitutional wording tightened to "unique, deterministic, monotone evaluation — no choice
+points, no nonmonotone revision loops"; the annex records it), and **bootstrapping the
+FireHorseCoding governance ledger** — the meta-meta tier: this redirection and the amendments log
+become its first recorded decisions, with AMENDMENTS.md continuing as its human-readable export
+(D28 made real).
+
+Seals (E4) gain a product path from the one-shot decision: a completed one-shot port **seals its
+map** under a declared query contract — the deliverable is the port plus its receipt, and
+reopening the seal upgrades to a tracked port. E4 remains scheduled at M2/S3 and now has a
+customer.
 
 ### M2′ — FrankenTui: probe, then the iterative learning loop (steward-directed shape)
 
@@ -303,6 +317,14 @@ keep-earning memo cites numbers.
 **Kill-watch (live numbers, per chartered criteria):** cone precision at brownfield scale;
 candidate-queue depth vs review capacity (confidence-theater tripwire); map-maintenance cost vs
 re-investigation saved.
+
+**After FrankenTui: the flagship corpus track.** Per the steward's corpus posture — many
+flagships, some shallow and some deep, increasing variety over time, many maintained deeply — the
+corpus is the service's signal-gathering instrument (porting subtleties AND agent-coding signal
+in the low-cost/high-compliance sense). Each flagship feeds the KodePorter meta-ledger
+(method-skill records accumulate ACROSS flagships, so guidance earns its versions from evidence).
+"Published as consumable artifacts" is explicitly deferred until there is a real decision to
+make.
 
 ## 11. Charter amendment dependencies
 

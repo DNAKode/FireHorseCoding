@@ -1,21 +1,28 @@
-# The Orchestration Playbook
+# The Orchestration Playbook — seed of KodePorter's guidance layer
 
 **What this is:** the agent-orchestration methods discovered while building the M1 increment
-(2026-07-10/11), recorded at steward direction. This is **process knowledge — how Fable-class
-orchestrators direct agent fleets to build software correctly**. It may grow into part of a larger
-service.
+(2026-07-10/11). Per steward direction (2026-07-11), KodePorter is **two layers, one product**:
+the *representation layer* (the map, its typed imperfections, the tools that keep it honest) and
+the *skills & guidance layer* (the service's accumulating knowledge of porting subtleties and of
+how agents are most effectively managed to perform, maintain, prove, and support porting
+projects). This document seeds the guidance layer. Its trajectory is **orchestrator-neutral**
+guidance — the anti-lock-in principle applies to guidance as much as to data; the entries below
+were discovered driving one Fable-class orchestration and are labeled as one instance's evidence,
+to be generalized (and eventually promoted into the KodePorter meta-ledger as governed, versioned,
+skill-scored knowledge rather than prose).
 
-**What this is not:** KodePorter. KodePorter is the explicit representation of a system mapping —
-the map, its typed imperfections, and the operations that keep it honest. Orchestrators (this
-playbook included) are *consumers* of that representation, never components of it. The boundary
-rule when a lesson could go either way: **if the lesson is about the domain, it becomes schema in
-the product; if it is about directing labor, it lives here.** (Worked example: "adversarial
-verification catches implementer blind spots" is labor direction — it lives here; "verification
-evidence has an independence property" is domain — it became a typed field on VerificationRuns.)
+**The boundary rule is internal, between the layers:** guidance never leaks into the
+representation as prose. When a lesson is about the domain, it becomes schema and affordances in
+the map (a typed property, a standing query, a gate policy); when it is about directing labor, it
+lives here. (Worked example: "adversarial verification catches implementer blind spots" is labor
+direction — it lives here; "verification evidence has an independence property" is domain — it
+became a typed field on VerificationRuns.) The representation layer must remain fully usable by
+an orchestrator that has never read this document.
 
 Evidence base: one increment — 4 workflows, 13 agents, ~2.2M subagent tokens, ~10 kLOC + tests +
 artifacts in ~a day; 5 confirmed major defects found by verification under 68 green tests; zero
-agent-level failures. One data point, honestly labeled as such. Revise per drive.
+agent-level failures. One data point, honestly labeled as such. Revise per drive; the flagship
+corpus exists to multiply these data points.
 
 ---
 
@@ -132,8 +139,9 @@ the fact.
 
 ---
 
-## Standing tripwire (steward-set, 2026-07-11)
+## Standing tripwire (steward-set 2026-07-11, reworded same day as layer discipline)
 
-If the FireHorseCoding repo accumulates more orchestration prose than product schema, KodePorter
-is dissolving into a methodology. This playbook is the designated container for method knowledge
-precisely so the product surface never becomes one.
+If the *representation layer* starts accreting method prose — or if guidance grows faster than
+the schema and affordances that should be absorbing its domain lessons — the two layers are
+collapsing into a methodology. This document is the designated container for method knowledge
+precisely so the map never becomes one.

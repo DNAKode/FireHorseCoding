@@ -52,3 +52,36 @@ governs. Demoted vocabulary and deferred mechanisms are parked in [ATTIC.md](ATT
   principle (judged a deterministic bounded closure, not search — but the call was made by the
   steward's delegate and needs sign-off; see showcase/m1/NOTEBOOK.md and the pending THE-PAGE
   findings annex).
+
+## 2026-07-11 (second entry) — The service realization (steward direction, via structured Q&A)
+
+Seven decisions, superseding the same-day narrower positioning where they conflict:
+
+1. **Two layers, one product.** The skills & guidance layer (porting subtleties + how agents are
+   most effectively managed to perform, maintain, prove, and support ports) joins KodePorter
+   alongside the representation layer. The fence becomes internal layer discipline: guidance never
+   leaks into the map as prose; domain lessons become schema/affordances; guidance is written
+   orchestrator-neutral. The playbook moved to
+   [KodePorter/guidance/PLAYBOOK.md](KodePorter/guidance/PLAYBOOK.md) as the layer's seed.
+2. **Delivery: installable kit + knowledge site.** CLI + agent skills + templates run in the
+   user's own environment with any orchestrator; the website is storefront and knowledge hub
+   (guidance KB, flagship showcases with live Atlases). No hosted runtime initially; the same
+   local-first stack serves private/closed ports.
+3. **Three Gneiss tiers, governance now.** Per-port ledgers; the KodePorter meta-ledger (porting
+   knowledge, transformation rules, method-skill — flagships feed it, projects import pinned
+   knowledge from it); the FireHorseCoding governance ledger (meta-meta), bootstrapped in M1.5
+   with this redirection as its first recorded decision. AMENDMENTS.md becomes its export.
+4. **Flagship corpus: many, mixed depth, increasing variety**, many maintained deeply — the
+   signal-gathering instrument for porting subtleties AND agent-coding signal
+   (low-cost/high-compliance). "Published as consumable artifacts" deferred until there is a real
+   decision to make.
+5. **One-shot ports seal their maps.** The one-shot deliverable is the port plus its sealed
+   receipt (declared query contract); reopening upgrades to tracked. E4 seals gain a product
+   customer.
+6. **License: MIT** for the full stack and knowledge base (root LICENSE already MIT/DNAKode —
+   confirmed, no change).
+7. **RATIFIED: grounded pairwise conflict semantics + consumed-set transitive closure.** The
+   constitutional wording tightens to its intent: evaluation must be **unique, deterministic, and
+   monotone — no choice points, no nonmonotone revision loops**; bounded monotone closures (the
+   decision-effectiveness pass, grounded conflict labeling, consumed-set closure) satisfy it.
+   kb/22 amendment + THE-PAGE findings annex are M1.5 deliverables recording this.

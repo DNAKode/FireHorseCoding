@@ -420,7 +420,20 @@ KodePorter should be assembled as interoperable components around the shared dom
 
 KodePorter need not own an IDE or agent runtime. It should integrate with existing tools through stable interfaces. The persistent map and workflow are the product center.
 
-**Positioning in the agent-coding space** *(clarified 2026-07-11, steward direction)*: KodePorter is the **system of record for a port** — the explicit, hierarchical representation of how two systems relate, including the typed imperfections of that representation itself (unknown, candidate, thin, stale, conflicting, absent-with-kind). Orchestration methods — however capable, whoever's — are *consumers* of that representation: they read the map for orientation and direction (work queues, bounded context, acceptance gates) and write back through proposals, evidence, and decisions. They are never components of KodePorter, and KodePorter must remain fully usable by an orchestrator that has never seen the method that built it. Lessons about porting correctly are absorbed as *schema and affordances* (a typed property, a standing query, a gate policy), not as method prose; method prose belongs in orchestration guides outside the product.
+**Positioning: KodePorter as a product and service** *(steward direction 2026-07-11, superseding the same-day narrower note)*:
+
+The full realization is a product/service/tool. Someone wanting to port — C# to Rust, Rust to C#, and pairs beyond — finds the KodePorter site and gets what they need to set up a porting system: **one-shot** (the map serves as scaffolding during the port and is **sealed** at completion — archived under a declared query contract, so the deliverable is the port plus its receipt; reopening a seal upgrades it to a tracked port) or **tracked** (maintainable, long-term, continuously preserved). Delivery is an **installable kit plus knowledge site**: CLI, agent skills, and templates that users run in their own environment with whatever orchestrator they choose; the site is the storefront and knowledge hub — guidance, setup paths, and the flagship showcases with their live Atlases.
+
+KodePorter is **two layers, one product**:
+
+1. **The representation layer** — the map, its typed imperfections (unknown, candidate, thin, stale, conflicting, absent-with-kind), and the tools and operations that keep it honest. This is the system of record any orchestrator works against: it is read for orientation and direction (work queues, bounded context, acceptance gates) and written through proposals, evidence, and decisions. It must remain fully usable by an orchestrator that has never seen the guidance that built it.
+2. **The skills & guidance layer** — the service's accumulating knowledge of porting subtleties and of how agents are most effectively managed to perform, maintain, prove, and support porting projects. Written orchestrator-neutral: the anti-lock-in principle applies to guidance as much as to data.
+
+The boundary between them is internal discipline, not a product boundary: guidance never leaks into the representation as prose. Lessons about porting correctly are absorbed into the representation as schema and affordances (a typed property, a standing query, a gate policy) wherever possible; what remains is guidance, versioned and governed like everything else.
+
+**The service learns, on the record.** A growing **flagship corpus** of open-source porting projects — many, of mixed depth and increasing variety, a number of them maintained deeply — exists to gather signal: porting subtleties and agent-coding signal alike (which methods perform, in the low-cost/high-compliance sense). Everything KodePorter builds, learns, is instructed, is corrected, and is aligned over time is managed in **Gneiss at three tiers**: per-port ledgers; the **KodePorter meta-ledger** (porting knowledge, transformation rules, method-skill records — flagships feed it, projects import pinned knowledge from it); and the **FireHorseCoding governance ledger** (the projects' own decisions and redirections — the meta-meta level). Whether flagship ports are *published* as consumable artifacts is deferred until there is a real decision to make.
+
+**Open source:** the full porting stack, knowledge base, and everything related is open source (MIT) for now. Private/closed porting projects are served by the same installable, local-first stack — no hosted dependency, no phone-home.
 
 ## 15. First implementation
 
@@ -455,7 +468,7 @@ The first demo is successful when an engineer can answer:
 
 ## 16. Benchmarks and research
 
-After the small controlled cell, KodePorter should test increasingly difficult shapes.
+After the small controlled cell, KodePorter should test increasingly difficult shapes. These benchmarks are the beginning of the **flagship corpus** (§14 positioning): a widening set of open-source ports of mixed depth, maintained as the service's signal-gathering instrument and public showcase.
 
 ### FrankenTui / FrankenTui.NET
 
