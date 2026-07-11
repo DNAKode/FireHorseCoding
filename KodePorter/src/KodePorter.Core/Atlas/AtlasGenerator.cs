@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Gneiss.Cell;
+using KodePorter.Core.Absence;
 using KodePorter.Core.Domain;
 using KodePorter.Core.Gneiss;
 using KodePorter.Core.Hashing;
@@ -75,7 +76,7 @@ public static class AtlasGenerator
                 c.Target is not null && targetBySymbol.TryGetValue(c.Target.SymbolPath, out var te) ? te.Id : null,
                 c.Criterion, c.Note,
                 ClaimStatusFor(view, index, GneissBinding.CorrespondenceSubject(c.Id), GneissBinding.PredCorrespondence),
-                c.Stale))
+                c.Stale, c.Provenance))
             .ToList();
 
         var atlasUnits = units
@@ -83,7 +84,8 @@ public static class AtlasGenerator
             .Select(u => new AtlasUnit(
                 u.Id, u.Name, u.Status, u.Stale, u.SourceAnchors, u.TargetAnchors,
                 BehaviorSummaryFor(view, index, u.Id),
-                MiniMarkdown.Render(BuildUnitBodyMarkdown(u))))
+                MiniMarkdown.Render(BuildUnitBodyMarkdown(u)),
+                u.Depth))
             .ToList();
 
         var atlasClaims = index.AssrtsInTxOrder
@@ -110,7 +112,12 @@ public static class AtlasGenerator
         string ledgerSha256 = Sha256Util.HexOfUtf8(string.Join('\n', exportLines));
         var footer = new AtlasFooter(ToWorkspaceRelative(workspaceDir, GneissBinding.LedgerPath(workspaceDir)), ledgerSha256);
 
-        var data = new AtlasData(header, health, labelInfo, sourceNodes, targetNodes, atlasCorrespondences, atlasUnits, atlasClaims, atlasRuns, footer);
+        var absences = BuildAbsenceLists(workspaceDir, store);
+        var continuityCandidates = BuildContinuityCandidates(store);
+        var overview = BuildOverview(sourceEntities, targetEntities, correspondences, staleSourceSymbols, staleTargetSymbols);
+
+        var data = new AtlasData(header, health, labelInfo, sourceNodes, targetNodes, atlasCorrespondences, atlasUnits, atlasClaims, atlasRuns, footer,
+            absences, continuityCandidates, overview);
 
         return AtlasHtmlRenderer.Render(data);
     }
@@ -128,8 +135,84 @@ public static class AtlasGenerator
     private static List<AtlasEntityNode> BuildTreeNodes(IReadOnlyList<Entity> entities, ISet<string> staleSymbols) =>
         entities
             .OrderBy(e => e.SymbolPath, StringComparer.Ordinal)
-            .Select(e => new AtlasEntityNode(e.Id, e.Kind, e.Name, e.SymbolPath, e.ParentId, staleSymbols.Contains(e.SymbolPath)))
+            .Select(e => new AtlasEntityNode(e.Id, e.Kind, e.Name, e.SymbolPath, e.ParentId, staleSymbols.Contains(e.SymbolPath), e.Resolution, e.IsTest))
             .ToList();
+
+    /// <summary>CONTRACT-M15.md §6.3: the health strip's absence breakdown drill-down lists, one
+    /// bucket per (side, kind) — embedded in the data island for lazy/paginated rendering (never a
+    /// flat pre-rendered HTML list, since "eligible uncovered entities" can still be sizable at
+    /// real-world scale).</summary>
+    private static AtlasAbsenceLists BuildAbsenceLists(string workspaceDir, MapStore store)
+    {
+        var resolved = AbsenceCalculator.Compute(workspaceDir, store);
+        List<AtlasAbsenceItem> Bucket(string side, string kind) => resolved
+            .Where(r => r.Side == side && r.Kind == kind)
+            .OrderBy(r => r.SymbolPath, StringComparer.Ordinal)
+            .Select(r => new AtlasAbsenceItem(r.SymbolPath, r.Note, r.IsOverride))
+            .ToList();
+
+        return new AtlasAbsenceLists(
+            SourceUnknown: Bucket("source", "unknown"),
+            SourceNotYetPorted: Bucket("source", "not-yet-ported"),
+            SourceDeliberatelyDropped: Bucket("source", "deliberately-dropped"),
+            TargetUnexplained: Bucket("target", "unexplained"),
+            TargetIntentional: Bucket("target", "intentional"));
+    }
+
+    /// <summary>CONTRACT-M15.md §1.2/§6.3: resolves each continuity_candidate row's entity ids
+    /// (which may reference any pinned basis, not just the latest two) to display symbolPaths.</summary>
+    private static List<AtlasContinuityCandidate> BuildContinuityCandidates(MapStore store)
+    {
+        var candidates = store.GetContinuityCandidates();
+        if (candidates.Count == 0)
+            return [];
+
+        var entitiesByBasis = new Dictionary<string, Dictionary<string, Entity>>(StringComparer.Ordinal);
+        Dictionary<string, Entity> EntitiesFor(string basisId)
+        {
+            if (!entitiesByBasis.TryGetValue(basisId, out var map))
+                entitiesByBasis[basisId] = map = store.GetEntities(basisId).ToDictionary(e => e.Id, StringComparer.Ordinal);
+            return map;
+        }
+
+        var result = new List<AtlasContinuityCandidate>();
+        foreach (var c in candidates)
+        {
+            var fromEntities = EntitiesFor(c.BasisFrom);
+            var toEntities = EntitiesFor(c.BasisTo);
+            fromEntities.TryGetValue(c.FromId, out var from);
+            toEntities.TryGetValue(c.ToId, out var to);
+            result.Add(new AtlasContinuityCandidate(
+                c.BasisFrom, c.BasisTo,
+                from?.SymbolPath ?? c.FromId, to?.SymbolPath ?? c.ToId,
+                to?.Kind ?? from?.Kind ?? "",
+                c.Heuristic, c.Status));
+        }
+        return result;
+    }
+
+    /// <summary>CONTRACT-M15.md §6.2: builds both sides' Overview treemaps. "corresponded" /
+    /// "candidate-only" mirror Health v2's own asserted-vs-candidate split (§1.7) so the Overview
+    /// panel and the health strip never disagree about what counts as covered.</summary>
+    private static AtlasOverview BuildOverview(
+        IReadOnlyList<Entity> sourceEntities, IReadOnlyList<Entity> targetEntities,
+        IReadOnlyList<Correspondence> correspondences, ISet<string> staleSourceSymbols, ISet<string> staleTargetSymbols)
+    {
+        var asserted = correspondences.Where(c => c.Provenance != "candidate").ToList();
+        var candidateOnly = correspondences.Where(c => c.Provenance == "candidate").ToList();
+
+        var sourceCorresponded = asserted.Where(c => c.Source is not null).Select(c => c.Source!.SymbolPath).ToHashSet(StringComparer.Ordinal);
+        var targetCorresponded = asserted.Where(c => c.Target is not null).Select(c => c.Target!.SymbolPath).ToHashSet(StringComparer.Ordinal);
+        var sourceCandidateOnly = candidateOnly.Where(c => c.Source is not null).Select(c => c.Source!.SymbolPath)
+            .Where(sp => !sourceCorresponded.Contains(sp)).ToHashSet(StringComparer.Ordinal);
+        var targetCandidateOnly = candidateOnly.Where(c => c.Target is not null).Select(c => c.Target!.SymbolPath)
+            .Where(sp => !targetCorresponded.Contains(sp)).ToHashSet(StringComparer.Ordinal);
+
+        return AtlasOverviewBuilder.Build(
+            sourceEntities, targetEntities,
+            sourceCorresponded, sourceCandidateOnly, staleSourceSymbols,
+            targetCorresponded, targetCandidateOnly, staleTargetSymbols);
+    }
 
     private static HashSet<string> StaleSymbolsForSide(IReadOnlyList<UnitDoc> units, IReadOnlyList<Correspondence> correspondences, BasisSide side)
     {
@@ -239,7 +322,7 @@ public static class AtlasGenerator
             return predicate switch
             {
                 GneissBinding.PredVerification =>
-                    $"verdict={GetStr(root, "verdict")} cases={GetInt(root, "cases")} mismatches={GetArrayLength(root, "mismatches")}",
+                    $"verdict={GetStr(root, "verdict")} cases={GetInt(root, "cases")} mismatches={GetArrayLength(root, "mismatches")} independence={(root.TryGetProperty("independence", out var indepEl) ? indepEl.GetString() : "unknown")}",
                 GneissBinding.PredCorrespondence =>
                     $"type={GetStr(root, "type")} unit={GetStr(root, "unit")}",
                 GneissBinding.PredEvidenceAnchor =>
@@ -311,9 +394,12 @@ public static class AtlasGenerator
 
             string mdPath = Path.ChangeExtension(jsonPath, ".md");
             string rerun = File.Exists(mdPath) ? ExtractRerunCommand(File.ReadAllText(mdPath)) : "";
+            string independence = root.TryGetProperty("independence", out var indepEl) && indepEl.ValueKind == JsonValueKind.String
+                ? indepEl.GetString()!
+                : "unknown";
 
             runs.Add(new AtlasRun(unit, criterion, verdict, pass, fail, mismatches, rerun,
-                ToWorkspaceRelative(workspaceDir, jsonPath), ToWorkspaceRelative(workspaceDir, mdPath)));
+                ToWorkspaceRelative(workspaceDir, jsonPath), ToWorkspaceRelative(workspaceDir, mdPath), independence));
         }
         return runs;
     }

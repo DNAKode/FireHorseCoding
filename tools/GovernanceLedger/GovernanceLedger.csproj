@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>GovernanceLedger</RootNamespace>
+    <AssemblyName>govledger</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- References Gneiss.Cell ONLY — no KodePorter anywhere (CONTRACT-M15.md section 7). -->
+    <ProjectReference Include="..\..\Gneiss\src\Gneiss.Cell\Gneiss.Cell.csproj" />
+  </ItemGroup>
+
+</Project>

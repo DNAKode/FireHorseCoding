@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Gneiss.Cell;
 using KodePorter.Core.Hashing;
+using Microsoft.Data.Sqlite;
 
 namespace KodePorter.Core.Gneiss;
 
@@ -14,8 +15,10 @@ public enum KpVerdict
 /// <summary>
 /// KodePorter's binding to a workspace's gneiss.db ledger (CONTRACT.md §5): declares the kp.*
 /// predicates and the kp-current context at init, and exposes promotion/proposal/decision
-/// operations plus the current-belief view. Consumes Gneiss ONLY through Gneiss.Cell's public
-/// facade (charter §4.2 sidecar boundary) — no Gneiss internals are referenced.
+/// operations plus the current-belief view. Consumes Gneiss through Gneiss.Cell's public facade
+/// (charter §4.2 sidecar boundary) — no Gneiss internals (its C# `internal` types) are ever
+/// referenced. The one documented exception is <see cref="ListNotes"/>, tagged `// DIVERGENCE:`
+/// at its definition, pending a public listing method on the facade.
 /// </summary>
 public sealed class GneissBinding : IDisposable
 {
@@ -30,10 +33,12 @@ public sealed class GneissBinding : IDisposable
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = false };
 
     private readonly GneissLedger _ledger;
+    private readonly string _ledgerPath;
 
-    private GneissBinding(GneissLedger ledger)
+    private GneissBinding(GneissLedger ledger, string ledgerPath)
     {
         _ledger = ledger;
+        _ledgerPath = ledgerPath;
     }
 
     public static string LedgerPath(string workspaceDir) => Path.Combine(workspaceDir, "gneiss.db");
@@ -47,14 +52,18 @@ public sealed class GneissBinding : IDisposable
         string path = LedgerPath(workspaceDir);
         bool isNew = !File.Exists(path);
         var ledger = isNew ? GneissLedger.Create(path) : GneissLedger.Open(path);
-        var binding = new GneissBinding(ledger);
+        var binding = new GneissBinding(ledger, path);
         if (isNew)
             binding.DeclarePredicatesAndContext();
         return binding;
     }
 
     /// <summary>Opens an existing workspace ledger. Throws if it has not been initialized.</summary>
-    public static GneissBinding Open(string workspaceDir) => new(GneissLedger.Open(LedgerPath(workspaceDir)));
+    public static GneissBinding Open(string workspaceDir)
+    {
+        string path = LedgerPath(workspaceDir);
+        return new GneissBinding(GneissLedger.Open(path), path);
+    }
 
     private void DeclarePredicatesAndContext()
     {
@@ -196,47 +205,66 @@ public sealed class GneissBinding : IDisposable
     /// <summary>Passthrough to the ledger's canonical JSONL export (tests/tooling; CONTRACT.md §2).</summary>
     public IReadOnlyList<string> ExportLedgerJsonl() => _ledger.ExportLedgerJsonl();
 
+    /// <summary>Fetches a single assertion by aid (Gneiss.Cell facade v0.1, CONTRACT-V01.md §3);
+    /// null if no assertion with that aid exists.</summary>
+    public AssertionInfo? GetAssertion(string aid) => _ledger.GetAssertion(aid);
+
+    // ---- Notes (K-A8 two-tier capture, CONTRACT-M15.md §3) ---------------------------------------
+
+    /// <summary>One row from the Gneiss note inbox.</summary>
+    public sealed record NoteInfo(string Id, string Wall, string Actor, string Text, string? PromotedAid);
+
+    /// <summary>Records a free-form note in the Gneiss note inbox (`kp note`). Returns the note's id.</summary>
+    public string Note(string text, string actor, string reason) =>
+        _ledger.Note(new TxEnvelope(actor, reason, DateTimeOffset.UtcNow), text);
+
+    /// <summary>
+    /// Lists every note in the workspace's note inbox, oldest first (`kp notes`).
+    ///
+    /// DIVERGENCE: Gneiss.Cell's facade v0.1 (CONTRACT-V01.md) exposes GneissLedger.Note(...) to
+    /// append to the note table, but no corresponding read/list method, and notes are not part of
+    /// ExportLedgerJsonl() (which covers only tx/assrt/dec/just — CONTRACT.md §2). Until Gneiss.Cell
+    /// lands a public listing method, this is the one place this binding steps outside the
+    /// sanctioned facade: a second, read-only connection to the same ledger.db file, reading only
+    /// the five columns of the note table as documented in CONTRACT-M15.md §3. Narrow, self-
+    /// contained, no write, no other schema assumed.
+    /// </summary>
+    public IReadOnlyList<NoteInfo> ListNotes()
+    {
+        using var conn = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = _ledgerPath,
+            Mode = SqliteOpenMode.ReadOnly,
+        }.ToString());
+        conn.Open();
+
+        using var cmd = conn.CreateCommand();
+        // Ordered by rowid (SQLite's implicit, monotonically-increasing insertion-order column for
+        // this insert-only table) rather than wall, so two notes recorded within the same tick of
+        // wall-clock resolution still list in the order they were actually appended.
+        cmd.CommandText = "SELECT id, wall, actor, text, promoted_aid FROM note ORDER BY rowid";
+        using var reader = cmd.ExecuteReader();
+
+        var result = new List<NoteInfo>();
+        while (reader.Read())
+        {
+            result.Add(new NoteInfo(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                reader.IsDBNull(4) ? null : reader.GetString(4)));
+        }
+        return result;
+    }
+
     // ---- Aid resolution -------------------------------------------------------------------------
 
-    // DIVERGENCE: Gneiss.Cell's Append returns only a TxId, not the aid(s) of the assertions it
-    // wrote — and a just-appended *proposed* claim is invisible to Ask() in a decided-only context
-    // (NotAdmitted entries are excluded by design, per BeliefFold), so it cannot be looked up that
-    // way either. ExportLedgerJsonl() is the one public, sanctioned way to recover the resulting
-    // aid without touching Gneiss internals or replicating its aid-hash formula: scan the freshly
-    // exported ledger for the assrt row matching (subject, predicate, canonical value) and take the
-    // one with the highest tx (ties broken by aid, for determinism). One Append call here always
-    // writes exactly one assertion, so this is unambiguous.
-    private string AppendSingleAndGetAid(TxEnvelope env, NewAssertion na)
-    {
-        _ledger.Append(env, new IAppendItem[] { na });
-
-        long bestTx = -1;
-        string? bestAid = null;
-        foreach (string line in _ledger.ExportLedgerJsonl())
-        {
-            using var doc = JsonDocument.Parse(line);
-            var root = doc.RootElement;
-            if (root.GetProperty("kind").GetString() != "assrt")
-                continue;
-            if (root.GetProperty("subj").GetString() != na.Subject)
-                continue;
-            if (root.GetProperty("pred").GetString() != na.Predicate)
-                continue;
-            if (root.GetProperty("val").GetString() != na.Value.Canonical)
-                continue;
-
-            long tx = root.GetProperty("tx").GetInt64();
-            string aid = root.GetProperty("aid").GetString()!;
-            if (tx > bestTx || (tx == bestTx && string.CompareOrdinal(aid, bestAid) > 0))
-            {
-                bestTx = tx;
-                bestAid = aid;
-            }
-        }
-
-        return bestAid ?? throw new InvalidOperationException(
-            $"No assertion found for subject '{na.Subject}' predicate '{na.Predicate}' immediately after Append.");
-    }
+    // CONTRACT-V01.md §1: Append now returns an AppendResult carrying each item's content-derived
+    // aid in item order, so a single-item Append's aid is simply the first (only) entry — no more
+    // scanning ExportLedgerJsonl() to recover it (the DIVERGENCE this replaced).
+    private string AppendSingleAndGetAid(TxEnvelope env, NewAssertion na) =>
+        _ledger.Append(env, new IAppendItem[] { na }).Aids[0];
 
     public void Dispose() => _ledger.Dispose();
 }

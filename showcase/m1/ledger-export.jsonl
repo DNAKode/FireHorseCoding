@@ -1,34 +1,34 @@
-{"kind":"tx","id":1,"wall":"2026-07-11T20:54:03.5146853Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
-{"kind":"tx","id":2,"wall":"2026-07-11T20:54:03.5146853Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
-{"kind":"tx","id":3,"wall":"2026-07-11T20:54:03.5146853Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
-{"kind":"tx","id":4,"wall":"2026-07-11T20:54:03.5146853Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
-{"kind":"tx","id":5,"wall":"2026-07-11T20:54:03.5146853Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
-{"kind":"tx","id":6,"wall":"2026-07-11T20:54:03.5146853Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
-{"kind":"tx","id":7,"wall":"2026-07-11T20:54:06.4409454Z","actor":"kodeporter","reason":"kp unit new","batch":null}
-{"kind":"tx","id":8,"wall":"2026-07-11T20:54:06.4619924Z","actor":"kodeporter","reason":"kp unit new","batch":null}
-{"kind":"tx","id":9,"wall":"2026-07-11T20:54:06.4675343Z","actor":"kodeporter","reason":"kp unit new","batch":null}
-{"kind":"tx","id":10,"wall":"2026-07-11T20:54:06.6610593Z","actor":"kodeporter","reason":"kp corr add","batch":null}
-{"kind":"tx","id":11,"wall":"2026-07-11T20:54:06.8761402Z","actor":"kodeporter","reason":"kp corr add","batch":null}
-{"kind":"tx","id":12,"wall":"2026-07-11T20:54:07.1020454Z","actor":"kodeporter","reason":"kp corr add","batch":null}
-{"kind":"tx","id":13,"wall":"2026-07-11T20:54:07.3369602Z","actor":"kodeporter","reason":"kp corr add","batch":null}
-{"kind":"tx","id":14,"wall":"2026-07-11T20:54:07.5713260Z","actor":"kodeporter","reason":"kp corr add","batch":null}
-{"kind":"tx","id":15,"wall":"2026-07-11T20:54:07.8036704Z","actor":"kodeporter","reason":"kp claim add","batch":null}
-{"kind":"tx","id":16,"wall":"2026-07-11T20:54:07.8258137Z","actor":"kodeporter","reason":"kp claim add","batch":null}
-{"kind":"tx","id":17,"wall":"2026-07-11T20:54:08.0417324Z","actor":"kodeporter","reason":"kp claim add","batch":null}
-{"kind":"tx","id":18,"wall":"2026-07-11T20:54:08.0638514Z","actor":"kodeporter","reason":"kp claim add","batch":null}
-{"kind":"tx","id":19,"wall":"2026-07-11T20:54:08.2721844Z","actor":"kodeporter","reason":"kp claim add","batch":null}
-{"kind":"tx","id":20,"wall":"2026-07-11T20:54:08.2950808Z","actor":"kodeporter","reason":"kp claim add","batch":null}
-{"kind":"tx","id":21,"wall":"2026-07-11T20:54:08.8094025Z","actor":"govert","reason":"Verified against rust/src/lib.rs duplicate resolution and the duplicate-two golden.","batch":null}
-{"kind":"tx","id":22,"wall":"2026-07-11T20:54:09.0089998Z","actor":"govert","reason":"Verified against type_value clamp logic and the ratio-clamp-edge golden.","batch":null}
-{"kind":"tx","id":23,"wall":"2026-07-11T20:54:11.0860856Z","actor":"kodeporter","reason":"kp verify run","batch":null}
-{"kind":"tx","id":24,"wall":"2026-07-11T20:54:11.1176119Z","actor":"policy:kp-default@1","reason":"auto-accept: verification green, policy allows kpVerification","batch":null}
-{"kind":"tx","id":25,"wall":"2026-07-11T20:54:12.5747603Z","actor":"kodeporter","reason":"kp advance","batch":null}
-{"kind":"tx","id":26,"wall":"2026-07-11T20:54:12.5942435Z","actor":"kodeporter","reason":"kp advance","batch":null}
-{"kind":"tx","id":27,"wall":"2026-07-11T20:54:12.6016915Z","actor":"kodeporter","reason":"kp advance","batch":null}
-{"kind":"tx","id":28,"wall":"2026-07-11T20:54:12.6098822Z","actor":"kodeporter","reason":"kp advance","batch":null}
-{"kind":"tx","id":29,"wall":"2026-07-11T20:54:12.6169353Z","actor":"kodeporter","reason":"kp advance","batch":null}
-{"kind":"tx","id":30,"wall":"2026-07-11T20:54:12.6358914Z","actor":"kodeporter","reason":"kp advance","batch":null}
-{"kind":"tx","id":31,"wall":"2026-07-11T20:54:12.6437157Z","actor":"kodeporter","reason":"kp advance","batch":null}
+{"kind":"tx","id":1,"wall":"2026-07-11T21:28:59.4544393Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
+{"kind":"tx","id":2,"wall":"2026-07-11T21:28:59.4544393Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
+{"kind":"tx","id":3,"wall":"2026-07-11T21:28:59.4544393Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
+{"kind":"tx","id":4,"wall":"2026-07-11T21:28:59.4544393Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
+{"kind":"tx","id":5,"wall":"2026-07-11T21:28:59.4544393Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
+{"kind":"tx","id":6,"wall":"2026-07-11T21:28:59.4544393Z","actor":"kodeporter","reason":"kp init: declare kp.* predicates and the kp-current context","batch":null}
+{"kind":"tx","id":7,"wall":"2026-07-11T21:29:02.9546678Z","actor":"kodeporter","reason":"kp unit new","batch":null}
+{"kind":"tx","id":8,"wall":"2026-07-11T21:29:02.9743030Z","actor":"kodeporter","reason":"kp unit new","batch":null}
+{"kind":"tx","id":9,"wall":"2026-07-11T21:29:02.9812938Z","actor":"kodeporter","reason":"kp unit new","batch":null}
+{"kind":"tx","id":10,"wall":"2026-07-11T21:29:03.2778109Z","actor":"kodeporter","reason":"kp corr add","batch":null}
+{"kind":"tx","id":11,"wall":"2026-07-11T21:29:03.6101090Z","actor":"kodeporter","reason":"kp corr add","batch":null}
+{"kind":"tx","id":12,"wall":"2026-07-11T21:29:03.9388580Z","actor":"kodeporter","reason":"kp corr add","batch":null}
+{"kind":"tx","id":13,"wall":"2026-07-11T21:29:04.2384727Z","actor":"kodeporter","reason":"kp corr add","batch":null}
+{"kind":"tx","id":14,"wall":"2026-07-11T21:29:04.5040178Z","actor":"kodeporter","reason":"kp corr add","batch":null}
+{"kind":"tx","id":15,"wall":"2026-07-11T21:29:04.7838006Z","actor":"kodeporter","reason":"kp claim add","batch":null}
+{"kind":"tx","id":16,"wall":"2026-07-11T21:29:04.8099408Z","actor":"kodeporter","reason":"kp claim add","batch":null}
+{"kind":"tx","id":17,"wall":"2026-07-11T21:29:05.0798830Z","actor":"kodeporter","reason":"kp claim add","batch":null}
+{"kind":"tx","id":18,"wall":"2026-07-11T21:29:05.1032194Z","actor":"kodeporter","reason":"kp claim add","batch":null}
+{"kind":"tx","id":19,"wall":"2026-07-11T21:29:05.3437436Z","actor":"kodeporter","reason":"kp claim add","batch":null}
+{"kind":"tx","id":20,"wall":"2026-07-11T21:29:05.3612643Z","actor":"kodeporter","reason":"kp claim add","batch":null}
+{"kind":"tx","id":21,"wall":"2026-07-11T21:29:06.3091049Z","actor":"govert","reason":"Verified against rust/src/lib.rs duplicate resolution and the duplicate-two golden.","batch":null}
+{"kind":"tx","id":22,"wall":"2026-07-11T21:29:06.5191558Z","actor":"govert","reason":"Verified against type_value clamp logic and the ratio-clamp-edge golden.","batch":null}
+{"kind":"tx","id":23,"wall":"2026-07-11T21:29:09.0926907Z","actor":"kodeporter","reason":"kp verify run","batch":null}
+{"kind":"tx","id":24,"wall":"2026-07-11T21:29:09.1139385Z","actor":"policy:kp-default@1","reason":"auto-accept: verification green, policy allows kpVerification","batch":null}
+{"kind":"tx","id":25,"wall":"2026-07-11T21:29:11.0619833Z","actor":"kodeporter","reason":"kp advance","batch":null}
+{"kind":"tx","id":26,"wall":"2026-07-11T21:29:11.1117378Z","actor":"kodeporter","reason":"kp advance","batch":null}
+{"kind":"tx","id":27,"wall":"2026-07-11T21:29:11.1185927Z","actor":"kodeporter","reason":"kp advance","batch":null}
+{"kind":"tx","id":28,"wall":"2026-07-11T21:29:11.1406949Z","actor":"kodeporter","reason":"kp advance","batch":null}
+{"kind":"tx","id":29,"wall":"2026-07-11T21:29:11.1456630Z","actor":"kodeporter","reason":"kp advance","batch":null}
+{"kind":"tx","id":30,"wall":"2026-07-11T21:29:11.1828296Z","actor":"kodeporter","reason":"kp advance","batch":null}
+{"kind":"tx","id":31,"wall":"2026-07-11T21:29:11.1889179Z","actor":"kodeporter","reason":"kp advance","batch":null}
 {"kind":"assrt","aid":"0ca64a0b5a44052fb4a41e23a1202f1dce9282bbd113c9d1e1eddd3d2c2819e4","tx":1,"subj":"kp.behavior","pred":"gneiss.predicate","val":"{\"name\":\"kp.behavior\",\"comparator\":\"exact\",\"tolAbs\":null,\"tolRel\":null,\"stopRung\":6,\"instantSampled\":false,\"sourcePrecedence\":null}","valkind":"json","vfrom":null,"vto":null,"status":"fact","src":null,"meth":null,"conf":null,"ckey":"2bca07d1897d5864017a6bec8af6020142c816a4ea5e4a199304cd1cf8f8e576"}
 {"kind":"assrt","aid":"6fa4d69b28fc5b3ee995798a97504d4fedf646d13e870d190d9a979c256639fc","tx":2,"subj":"kp.evidence.anchor","pred":"gneiss.predicate","val":"{\"name\":\"kp.evidence.anchor\",\"comparator\":\"exact\",\"tolAbs\":null,\"tolRel\":null,\"stopRung\":6,\"instantSampled\":false,\"sourcePrecedence\":null}","valkind":"json","vfrom":null,"vto":null,"status":"fact","src":null,"meth":null,"conf":null,"ckey":"0d80b2697b2a2b53b92fee8c0cc2273559fc5a0471ebabca85b51c03a406cc22"}
 {"kind":"assrt","aid":"37e50818dd014128ddf749b637457cf5274576fa1f3e28df7be214f89b22a561","tx":3,"subj":"kp.correspondence","pred":"gneiss.predicate","val":"{\"name\":\"kp.correspondence\",\"comparator\":\"exact\",\"tolAbs\":null,\"tolRel\":null,\"stopRung\":6,\"instantSampled\":false,\"sourcePrecedence\":null}","valkind":"json","vfrom":null,"vto":null,"status":"fact","src":null,"meth":null,"conf":null,"ckey":"b700f70e9485afe4cba9947096ca442e17fe7c12f939ede2d33d5ae2cc7c6f3d"}

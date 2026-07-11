@@ -1,5 +1,6 @@
 using KodePorter.Core.Advance;
 using KodePorter.Core.Atlas;
+using KodePorter.Core.Candidates;
 using KodePorter.Core.Domain;
 using KodePorter.Core.Export;
 using KodePorter.Core.Gneiss;
@@ -46,6 +47,10 @@ public static class KpCliApp
                 case "export": RunExport(new ArgReader(rest), stdout); break;
                 case "export-ledger": RunExportLedger(new ArgReader(rest), stdout); break;
                 case "atlas": RunAtlas(new ArgReader(rest), stdout); break;
+                case "note": RunNote(new ArgReader(rest), stdout); break;
+                case "notes": RunNotes(new ArgReader(rest), stdout); break;
+                case "candidates": RunCandidates(rest, stdout); break;
+                case "absence": RunAbsence(rest, stdout); break;
                 default: throw new CliUsageException($"Unknown command '{verb}'.");
             }
             return 0;
@@ -158,15 +163,22 @@ public static class KpCliApp
         stdout.WriteLine($"Imported {result.EntityCount} entities for {side.ToWireString()} '{label}' ({result.ErrorDiagnosticCount} diagnostics).");
     }
 
-    // ---- unit new ---------------------------------------------------------------------------
+    // ---- unit new / set-depth -----------------------------------------------------------------
 
     private static void RunUnit(IReadOnlyList<string> args, TextWriter stdout)
     {
         string sub = RequireSubVerb(args, "unit");
         var a = new ArgReader(args.Skip(1).ToList());
-        if (sub != "new")
-            throw new CliUsageException($"Unknown 'unit' sub-command '{sub}' (expected 'new').");
+        switch (sub)
+        {
+            case "new": RunUnitNew(a, stdout); break;
+            case "set-depth": RunUnitSetDepth(a, stdout); break;
+            default: throw new CliUsageException($"Unknown 'unit' sub-command '{sub}' (expected 'new' or 'set-depth').");
+        }
+    }
 
+    private static void RunUnitNew(ArgReader a, TextWriter stdout)
+    {
         string workspaceDir = a.Require("workspace");
         string id = a.Require("id");
         string name = a.Require("name");
@@ -189,6 +201,23 @@ public static class KpCliApp
             binding.PromoteAnchor(new AnchorEvidenceValue(e.SymbolPath, targetLabel!, e.ContentHash, e.File, e.StartLine, e.EndLine), "kodeporter", "kp unit new");
 
         stdout.WriteLine($"Created unit '{id}' ({sourceAnchors.Count} source anchor(s), {targetAnchors.Count} target anchor(s)).");
+    }
+
+    private static void RunUnitSetDepth(ArgReader a, TextWriter stdout)
+    {
+        string workspaceDir = a.Require("workspace");
+        string id = a.Require("id");
+        string depth = a.Require("depth");
+        if (depth is not ("thin" or "dossiered"))
+            throw new CliUsageException($"--depth must be 'thin' or 'dossiered' (got '{depth}').");
+
+        if (!UnitYaml.ListUnitIds(workspaceDir).Contains(id, StringComparer.Ordinal))
+            throw new CliDomainException($"No unit '{id}'; run 'kp unit new' first.");
+
+        var unit = UnitYaml.Read(workspaceDir, id);
+        UnitYaml.Write(workspaceDir, unit with { Depth = depth });
+
+        stdout.WriteLine($"Set unit '{id}' depth to '{depth}'.");
     }
 
     private static List<Entity> ResolveAnchorEntities(MapStore store, BasisSide side, string? csv, out string? basisLabel)
@@ -229,6 +258,9 @@ public static class KpCliApp
         string? criterion = a.Optional("criterion");
         string? divergenceKind = a.Optional("divergence-kind");
         string? note = a.Optional("note");
+        string provenance = a.OptionalOr("provenance", "asserted");
+        if (provenance is not ("candidate" or "asserted"))
+            throw new CliUsageException($"--provenance must be 'candidate' or 'asserted' (got '{provenance}').");
 
         using var workspace = KpWorkspace.Open(workspaceDir);
         using var binding = GneissBinding.Initialize(workspaceDir);
@@ -243,19 +275,25 @@ public static class KpCliApp
         AnchorRef? source = sourceSp is null ? null : ResolveSingleAnchor(workspace.Map, BasisSide.Source, sourceSp);
         AnchorRef? target = targetSp is null ? null : ResolveSingleAnchor(workspace.Map, BasisSide.Target, targetSp);
 
-        var corr = new Correspondence(id, type, divergenceKind, unit, source, target, criterion, note, ClaimAid: null, Stale: false);
+        // CONTRACT-M15.md §1.3/§2: a `candidate` correspondence is machine-inferred/unreviewed;
+        // matching CandidateInferenceService's own rule, it never gets a Gneiss claim — only an
+        // `asserted` row is proposed for decision.
+        string? aid = null;
+        if (provenance == "asserted")
+        {
+            var value = new CorrespondenceClaimValue(
+                type,
+                source is null ? null : new AnchorRefValue(source.SymbolPath, source.BasisLabel, source.ContentHash),
+                target is null ? null : new AnchorRefValue(target.SymbolPath, target.BasisLabel, target.ContentHash),
+                unit, criterion);
+            aid = binding.ProposeCorrespondenceClaim(id, value, evidenceAids: null, actor: "kodeporter", reason: "kp corr add");
+        }
 
-        var value = new CorrespondenceClaimValue(
-            type,
-            source is null ? null : new AnchorRefValue(source.SymbolPath, source.BasisLabel, source.ContentHash),
-            target is null ? null : new AnchorRefValue(target.SymbolPath, target.BasisLabel, target.ContentHash),
-            unit, criterion);
-        string aid = binding.ProposeCorrespondenceClaim(id, value, evidenceAids: null, actor: "kodeporter", reason: "kp corr add");
-
-        correspondences.Add(corr with { ClaimAid = aid });
+        var corr = new Correspondence(id, type, divergenceKind, unit, source, target, criterion, note, ClaimAid: aid, Stale: false, Provenance: provenance);
+        correspondences.Add(corr);
         CorrespondencesYaml.Write(workspaceDir, correspondences);
 
-        stdout.WriteLine($"Added correspondence '{id}' ({type}) for unit '{unit}'.");
+        stdout.WriteLine($"Added correspondence '{id}' ({type}, provenance {provenance}) for unit '{unit}'.");
     }
 
     private static AnchorRef ResolveSingleAnchor(MapStore store, BasisSide side, string symbolPath)
@@ -398,6 +436,10 @@ public static class KpCliApp
         string cases = a.Require("cases");
         string sourceCmd = a.Require("source-cmd");
         string targetCmd = a.Require("target-cmd");
+        string independence = a.OptionalOr("independence", "unknown");
+        if (independence is not ("independently-derived" or "implementation-coupled" or "unknown"))
+            throw new CliUsageException(
+                $"--independence must be 'independently-derived', 'implementation-coupled', or 'unknown' (got '{independence}').");
         const string criterion = "io-agreement-v1"; // the only criterion this increment implements (CONTRACT.md §6)
 
         using var workspace = KpWorkspace.Open(workspaceDir);
@@ -408,7 +450,7 @@ public static class KpCliApp
         string targetBasisLabel = LatestBasis(workspace.Map, BasisSide.Target)?.Label
             ?? throw new CliDomainException("No target basis pinned; run 'kp pin --side target' first.");
 
-        var run = VerificationHarness.Run(workspaceDir, unitId, criterion, cases, sourceCmd, targetCmd, sourceBasisLabel, targetBasisLabel, DateTimeOffset.UtcNow);
+        var run = VerificationHarness.Run(workspaceDir, unitId, criterion, cases, sourceCmd, targetCmd, sourceBasisLabel, targetBasisLabel, DateTimeOffset.UtcNow, independence);
 
         var policy = File.Exists(PolicyYaml.FilePath(workspaceDir))
             ? PolicyYaml.Read(workspaceDir)
@@ -441,24 +483,28 @@ public static class KpCliApp
 
     // ---- status ---------------------------------------------------------------------------------
 
+    /// <summary>Prints Health v2 in full (CONTRACT-M15.md §1.7: "kp status prints all"; same
+    /// numbers as the Atlas health strip, CONTRACT.md §8/§9).</summary>
     private static void RunStatus(ArgReader a, TextWriter stdout)
     {
         string workspaceDir = a.Require("workspace");
         using var workspace = KpWorkspace.Open(workspaceDir);
         using var binding = GneissBinding.Initialize(workspaceDir);
 
-        // NB: KodePorter.Core.HealthReport's shape moved to "Health v2" (CONTRACT-M15.md §1.7)
-        // concurrently with this Cli project being explicitly out of scope for that increment;
-        // this is the minimum mechanical edit to keep the solution compiling against the new
-        // shape (h.Unknown -> h.Absence.Unknown). Printing the v2 fields in full ("kp status
-        // prints all") is left to the agent that owns KodePorter.Cli.
         var h = HealthCalculator.Compute(workspaceDir, workspace.Map, binding);
         stdout.WriteLine($"mapped: {h.Mapped}");
         stdout.WriteLine($"corresponded: {h.Corresponded}");
+        stdout.WriteLine($"candidates: {h.Candidates}");
         stdout.WriteLine($"implemented: {h.Implemented}");
         stdout.WriteLine($"verified: {h.Verified}");
         stdout.WriteLine($"stale: {h.Stale}");
-        stdout.WriteLine($"unknown: {h.Absence.Unknown}");
+        stdout.WriteLine("absence:");
+        stdout.WriteLine($"  unknown: {h.Absence.Unknown}");
+        stdout.WriteLine($"  notYetPorted: {h.Absence.NotYetPorted}");
+        stdout.WriteLine($"  deliberatelyDropped: {h.Absence.DeliberatelyDropped}");
+        stdout.WriteLine("targetOnly:");
+        stdout.WriteLine($"  unexplained: {h.TargetOnly.Unexplained}");
+        stdout.WriteLine($"  intentional: {h.TargetOnly.Intentional}");
     }
 
     // ---- export ---------------------------------------------------------------------------------
@@ -496,6 +542,91 @@ public static class KpCliApp
         using var binding = GneissBinding.Initialize(workspaceDir);
         string path = AtlasGenerator.GenerateToFile(workspaceDir, workspace.Map, binding, outPath, DateTimeOffset.UtcNow);
         stdout.WriteLine($"Wrote Port Atlas to '{path}'.");
+    }
+
+    // ---- note / notes (K-A8 two-tier capture, CONTRACT-M15.md §3) ---------------------------------
+
+    private static void RunNote(ArgReader a, TextWriter stdout)
+    {
+        string workspaceDir = a.Require("workspace");
+        string text = a.Require("text");
+        string actor = a.OptionalOr("actor", "kodeporter");
+
+        using var binding = GneissBinding.Initialize(workspaceDir);
+        string id = binding.Note(text, actor, "kp note");
+
+        stdout.WriteLine($"Recorded note {ShortHash(id)}.");
+    }
+
+    private static void RunNotes(ArgReader a, TextWriter stdout)
+    {
+        string workspaceDir = a.Require("workspace");
+
+        using var binding = GneissBinding.Initialize(workspaceDir);
+        var notes = binding.ListNotes();
+
+        if (notes.Count == 0)
+        {
+            stdout.WriteLine("No notes.");
+            return;
+        }
+
+        foreach (var n in notes)
+        {
+            string promoted = n.PromotedAid is null ? "no" : "yes";
+            stdout.WriteLine($"{ShortHash(n.Id)}  {n.Wall}  {n.Actor}  promoted={promoted}  {n.Text}");
+        }
+    }
+
+    // ---- candidates infer (CONTRACT-M15.md §2) -----------------------------------------------------
+
+    private static void RunCandidates(IReadOnlyList<string> args, TextWriter stdout)
+    {
+        string sub = RequireSubVerb(args, "candidates");
+        var a = new ArgReader(args.Skip(1).ToList());
+        if (sub != "infer")
+            throw new CliUsageException($"Unknown 'candidates' sub-command '{sub}' (expected 'infer').");
+
+        string workspaceDir = a.Require("workspace");
+        string heuristic = a.OptionalOr("heuristic", "name-norm");
+
+        using var workspace = KpWorkspace.Open(workspaceDir);
+        var result = CandidateInferenceService.Infer(workspaceDir, workspace.Map, heuristic);
+
+        stdout.WriteLine($"Candidates: created {result.Created}, skipped {result.Skipped}, ambiguous {result.Ambiguous.Count}.");
+        foreach (var symbolPath in result.Ambiguous)
+            stdout.WriteLine($"  ambiguous: {symbolPath}");
+    }
+
+    // ---- absence set (CONTRACT-M15.md §1.5) --------------------------------------------------------
+
+    private static void RunAbsence(IReadOnlyList<string> args, TextWriter stdout)
+    {
+        string sub = RequireSubVerb(args, "absence");
+        var a = new ArgReader(args.Skip(1).ToList());
+        if (sub != "set")
+            throw new CliUsageException($"Unknown 'absence' sub-command '{sub}' (expected 'set').");
+
+        string workspaceDir = a.Require("workspace");
+        string symbol = a.Require("symbol");
+        string kind = a.Require("kind");
+        string? note = a.Optional("note");
+        string side = a.OptionalOr("side", "source");
+        if (side is not ("source" or "target"))
+            throw new CliUsageException($"--side must be 'source' or 'target' (got '{side}').");
+
+        var validKinds = side == "source"
+            ? new[] { "not-yet-ported", "deliberately-dropped", "unknown" }
+            : new[] { "intentional", "unexplained" };
+        if (!validKinds.Contains(kind, StringComparer.Ordinal))
+            throw new CliUsageException($"--kind must be one of [{string.Join(", ", validKinds)}] for --side {side} (got '{kind}').");
+
+        var overrides = AbsencesYaml.Read(workspaceDir);
+        overrides.RemoveAll(o => o.Side == side && o.SymbolPath == symbol);
+        overrides.Add(new AbsenceOverride(symbol, kind, note, side));
+        AbsencesYaml.Write(workspaceDir, overrides);
+
+        stdout.WriteLine($"Set absence '{symbol}' ({side}) to '{kind}'.");
     }
 
     private static string ShortHash(string hash) => hash.Length > 12 ? hash[..12] : hash;

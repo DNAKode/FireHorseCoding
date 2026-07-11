@@ -129,6 +129,63 @@ public class GneissBindingTests
         Assert.Throws<ArgumentException>(() => binding.HumanDecide(claimAid, KpVerdict.Accept, reason: "", actor: "govert"));
     }
 
+    /// <summary>
+    /// Gneiss facade v0.1 equivalence (CONTRACT-V01.md; CONTRACT-M15.md §4): the aid a proposal
+    /// method returns (now sourced directly from Append's AppendResult, no more export-scan
+    /// recovery) round-trips through GetAssertion to the same subject/predicate/value the caller
+    /// asked for.
+    /// </summary>
+    [Fact]
+    public void ProposedClaimAidFromAppendResultMatchesGetAssertionRoundTrip()
+    {
+        using var dir = new TempDirectory();
+        using var binding = GneissBinding.Initialize(dir.Path);
+
+        string claimAid = binding.ProposeBehaviorClaim(
+            "unit-parse", "B1", "Parses a header line into tokens.", [],
+            actor: "kodeporter", reason: "generated from anchors");
+
+        var info = binding.GetAssertion(claimAid);
+        Assert.NotNull(info);
+        Assert.Equal(claimAid, info!.Aid);
+        Assert.Equal(GneissBinding.BehaviorSubject("unit-parse", "B1"), info.Subject);
+        Assert.Equal(GneissBinding.PredBehavior, info.Predicate);
+        Assert.Equal("text", info.Value.Kind);
+        Assert.Equal("Parses a header line into tokens.", info.Value.Canonical);
+        Assert.Equal("proposed", info.Status);
+
+        // A second, unrelated proposal gets a different aid, and GetAssertion of an aid that was
+        // never returned by Append is null (never confused with a different assertion).
+        string anchorAid = binding.PromoteAnchor(
+            new AnchorEvidenceValue("headscan::parse", "d1", "aaaa", "src/lib.rs", 8, 40),
+            actor: "kodeporter", reason: "map import");
+        Assert.NotEqual(claimAid, anchorAid);
+        Assert.Null(binding.GetAssertion("not-a-real-aid"));
+    }
+
+    /// <summary>CONTRACT-M15.md §3: `Note`/`ListNotes` — the two-tier capture inbox. Notes are
+    /// listed oldest first and start unpromoted.</summary>
+    [Fact]
+    public void NoteIsRecordedAndListedUnpromoted()
+    {
+        using var dir = new TempDirectory();
+        using var binding = GneissBinding.Initialize(dir.Path);
+
+        Assert.Empty(binding.ListNotes());
+
+        string id1 = binding.Note("first observation", "govert", "kp note");
+        string id2 = binding.Note("second observation", "fable", "kp note");
+
+        var notes = binding.ListNotes();
+        Assert.Equal(2, notes.Count);
+        Assert.Equal([id1, id2], notes.Select(n => n.Id));
+        Assert.Equal("first observation", notes[0].Text);
+        Assert.Equal("govert", notes[0].Actor);
+        Assert.Null(notes[0].PromotedAid);
+        Assert.Equal("second observation", notes[1].Text);
+        Assert.Equal("fable", notes[1].Actor);
+    }
+
     [Fact]
     public void InitializeIsIdempotentAndOpenReusesTheSameLedger()
     {

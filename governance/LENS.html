@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FireHorseCoding — Governance Ledger (LENS)</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.55;
+}
+:root {
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #2563eb;
+  --card-bg: #f9fafb;
+  --green: #15803d;
+  --green-bg: #dcfce7;
+  --gray: #6b7280;
+  --gray-bg: #f3f4f6;
+  --red: #b91c1c;
+  --red-bg: #fee2e2;
+  --amber: #b45309;
+  --amber-bg: #fef3c7;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1115;
+    --fg: #e5e7eb;
+    --muted: #9ca3af;
+    --border: #262a33;
+    --accent: #60a5fa;
+    --card-bg: #171a20;
+    --green: #4ade80;
+    --green-bg: #0f2e1a;
+    --gray: #9ca3af;
+    --gray-bg: #1a1d24;
+    --red: #f87171;
+    --red-bg: #3a1414;
+    --amber: #fbbf24;
+    --amber-bg: #3f2d05;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1115; --fg: #e5e7eb; --muted: #9ca3af; --border: #262a33; --accent: #60a5fa;
+  --card-bg: #171a20; --green: #4ade80; --green-bg: #0f2e1a; --gray: #9ca3af; --gray-bg: #1a1d24;
+  --red: #f87171; --red-bg: #3a1414; --amber: #fbbf24; --amber-bg: #3f2d05;
+}
+:root[data-theme="light"] {
+  --bg: #ffffff; --fg: #1a1a1a; --muted: #6b7280; --border: #e5e7eb; --accent: #2563eb;
+  --card-bg: #f9fafb; --green: #15803d; --green-bg: #dcfce7; --gray: #6b7280; --gray-bg: #f3f4f6;
+  --red: #b91c1c; --red-bg: #fee2e2; --amber: #b45309; --amber-bg: #fef3c7;
+}
+a { color: var(--accent); }
+code { font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: 0.85em; }
+.muted { color: var(--muted); }
+
+.lens-header { padding: 2rem 2rem 1.25rem; border-bottom: 1px solid var(--border); }
+.lens-header h1 { margin: 0 0 0.4rem; font-size: 1.5rem; font-weight: 600; }
+.tagline { margin: 0 0 0.5rem; color: var(--muted); max-width: 60rem; }
+.export-stamp { margin: 0; font-size: 0.8rem; color: var(--muted); }
+
+main { max-width: 72rem; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+
+h2 { font-size: 1.05rem; font-weight: 600; margin: 0 0 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+.timeline { margin-bottom: 2.5rem; }
+.tx-list { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--border); }
+.tx-row {
+  display: grid;
+  grid-template-columns: 12rem 8rem auto 1fr;
+  gap: 0.75rem;
+  align-items: baseline;
+  padding: 0.4rem 0 0.4rem 1rem;
+  margin-left: -2px;
+  border-left: 2px solid transparent;
+  font-size: 0.85rem;
+}
+.tx-row:target { border-left: 2px solid var(--accent); background: var(--card-bg); }
+.tx-wall { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; color: var(--muted); font-size: 0.8em; }
+.tx-actor { font-weight: 600; }
+.tx-kind { justify-self: start; font-size: 0.72rem; padding: 0.05rem 0.5rem; border-radius: 999px; background: var(--gray-bg); color: var(--gray); white-space: nowrap; }
+.tx-kind.kind-supersedes { background: var(--amber-bg); color: var(--amber); }
+.tx-kind.kind-bootstrap { background: var(--gray-bg); color: var(--muted); }
+.tx-reason { color: var(--fg); }
+
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); gap: 1rem; }
+.card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card-bg);
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.card.superseded { border-style: dashed; }
+.card-head { display: flex; justify-content: space-between; align-items: start; gap: 0.6rem; }
+.card-value { margin: 0; font-size: 1rem; font-weight: 600; line-height: 1.35; }
+.card.superseded .card-value { text-decoration: line-through; text-decoration-color: var(--muted); color: var(--muted); font-weight: 500; }
+.badge { font-size: 0.7rem; padding: 0.15rem 0.55rem; border-radius: 999px; white-space: nowrap; font-weight: 600; }
+.badge-accepted { background: var(--green-bg); color: var(--green); }
+.badge-defeated { background: var(--gray-bg); color: var(--gray); }
+.badge-contested { background: var(--amber-bg); color: var(--amber); }
+.badge-proposed-unadmitted, .badge-not-visible { background: var(--red-bg); color: var(--red); }
+
+.card-meta { display: flex; flex-wrap: wrap; gap: 0.5rem 0.9rem; font-size: 0.78rem; color: var(--muted); }
+.meta-actor { font-weight: 600; color: var(--fg); }
+.meta-method { border: 1px solid var(--border); border-radius: 999px; padding: 0 0.5rem; }
+
+.card-reason {
+  margin: 0;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--fg);
+  font-style: italic;
+}
+
+.superseded-banner {
+  font-size: 0.8rem;
+  background: var(--amber-bg);
+  color: var(--amber);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+}
+.superseded-banner a { color: inherit; font-weight: 600; text-decoration: underline; }
+
+details.trail { font-size: 0.8rem; }
+details.trail summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.trail-empty { color: var(--muted); margin: 0.4rem 0 0; }
+.trail-list { margin: 0.4rem 0 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.trail-kind { font-weight: 600; text-transform: uppercase; font-size: 0.7em; padding: 0.05rem 0.4rem; border-radius: 999px; background: var(--gray-bg); color: var(--gray); }
+.trail-kind.kind-supersedes { background: var(--amber-bg); color: var(--amber); }
+
+.lens-footer { max-width: 72rem; margin: 0 auto; padding: 0 2rem 2.5rem; font-size: 0.78rem; color: var(--muted); }
+
+@media (max-width: 640px) {
+  .tx-row { grid-template-columns: 1fr; gap: 0.15rem; }
+}
+</style>
+</head>
+<body>
+<header class="lens-header">
+<h1>FireHorseCoding <span class="muted">/</span> Governance Ledger</h1>
+<p class="tagline">The meta-meta tier: every steward decision and delegate proposal that shaped this repository, in one append-only ledger.</p>
+<p class="export-stamp">export sha256 <code>6765c1b86428e27002737447f9e04a1b1146171bc1b9559985637e96f811ebda</code></p>
+</header>
+<main>
+<section class="timeline">
+<h2>Timeline</h2>
+<ol class="tx-list">
+<li class="tx-row" id="tx-1">
+<span class="tx-wall">2026-07-10T18:58:00.0000000Z</span>
+<span class="tx-actor">governance-ledger</span>
+<span class="tx-kind kind-bootstrap">bootstrap</span>
+<span class="tx-reason">bootstrap: declare gov.decision predicate and gov-current context</span>
+</li>
+<li class="tx-row" id="tx-2">
+<span class="tx-wall">2026-07-10T18:58:00.0000000Z</span>
+<span class="tx-actor">governance-ledger</span>
+<span class="tx-kind kind-bootstrap">bootstrap</span>
+<span class="tx-reason">bootstrap: declare gov.decision predicate and gov-current context</span>
+</li>
+<li class="tx-row" id="tx-3">
+<span class="tx-wall">2026-07-10T18:58:17.0000000Z</span>
+<span class="tx-actor">govert</span>
+<span class="tx-kind kind-decision">decision</span>
+<span class="tx-reason">Gneiss and KodePorter charters established, founding the formative-phase constitution for both projects (commit af45f45: &quot;establish Gneiss a…</span>
+</li>
+<li class="tx-row" id="tx-4">
+<span class="tx-wall">2026-07-10T20:25:09.0000000Z</span>
+<span class="tx-actor">fable</span>
+<span class="tx-kind kind-decision">decision</span>
+<span class="tx-reason">&quot;Critical review of both charters (adversarial passes; 19 proposed amendments G-A1..9 / K-A1..10) plus coordinated v0 roadmaps sharing one m…</span>
+</li>
+<li class="tx-row" id="tx-5">
+<span class="tx-wall">2026-07-10T21:40:42.0000000Z</span>
+<span class="tx-actor">govert</span>
+<span class="tx-kind kind-decision">decision</span>
+<span class="tx-reason">&quot;By steward direction (&quot;proceed with the roadmap&quot;), amendments G-A1…G-A9 and K-A1…K-A10 as specified in CHARTER-REVIEW.md &#167;7 are adopted for…</span>
+</li>
+<li class="tx-row" id="tx-6">
+<span class="tx-wall">2026-07-11T00:16:56.0000000Z</span>
+<span class="tx-actor">fable</span>
+<span class="tx-kind kind-decision">decision</span>
+<span class="tx-reason">&quot;The full KodePorter-on-Gneiss story runs end to end on Slice Zero (showcase/m1/run-m1.ps1): pin + map both sides (102 Rust + 67 C# entities…</span>
+</li>
+<li class="tx-row" id="tx-7">
+<span class="tx-wall">2026-07-11T00:17:56.0000000Z</span>
+<span class="tx-actor">fable</span>
+<span class="tx-kind kind-decision">decision</span>
+<span class="tx-reason">&quot;Model corrections found by the story itself: behavior claims get per-claim subjects (behavior:&lt;unit&gt;:&lt;id&gt;) - shared unit subjects collided…</span>
+</li>
+<li class="tx-row" id="tx-8">
+<span class="tx-wall">2026-07-11T01:04:14.0000000Z</span>
+<span class="tx-actor">govert</span>
+<span class="tx-kind kind-decision">decision</span>
+<span class="tx-reason">&quot;KodePorter positioning clarified (charter &#167;14 paragraph added): the system of record for a port — the explicit map with typed imperfections…</span>
+</li>
+<li class="tx-row" id="tx-9">
+<span class="tx-wall">2026-07-11T14:48:58.0000000Z</span>
+<span class="tx-actor">govert</span>
+<span class="tx-kind kind-decision">decision</span>
+<span class="tx-reason">&quot;Seven decisions, superseding the same-day narrower positioning where they conflict… Three Gneiss tiers, governance now. Per-port ledgers; t…</span>
+</li>
+<li class="tx-row" id="tx-10">
+<span class="tx-wall">2026-07-11T14:49:58.0000000Z</span>
+<span class="tx-actor">govert</span>
+<span class="tx-kind kind-supersedes">supersedes</span>
+<span class="tx-reason">&quot;Seven decisions, superseding the same-day narrower positioning where they conflict&quot; — the service realization supersedes the same morning&#39;s…</span>
+</li>
+<li class="tx-row" id="tx-11">
+<span class="tx-wall">2026-07-11T22:25:44.0000000Z</span>
+<span class="tx-actor">govert</span>
+<span class="tx-kind kind-decision">decision</span>
+<span class="tx-reason">&quot;RATIFIED: grounded pairwise conflict semantics + consumed-set transitive closure. The constitutional wording tightens to its intent: evalua…</span>
+</li>
+</ol>
+</section>
+<section class="cards">
+<h2>Decisions</h2>
+<div class="card-grid">
+<article class="card status-accepted" id="card-charters-established">
+<div class="card-head">
+<h3 class="card-value">Gneiss and KodePorter charters established.</h3>
+<span class="badge badge-accepted">accepted</span>
+</div>
+<div class="card-meta">
+<span class="meta-actor">govert</span>
+<span class="meta-method">steward-decision</span>
+<span class="meta-date">valid from 2026-07-10</span>
+<span class="meta-source"><code>commit:af45f45</code></span>
+</div>
+<blockquote class="card-reason">Gneiss and KodePorter charters established, founding the formative-phase constitution for both projects (commit af45f45: &quot;establish Gneiss and KodePorter charters&quot;).</blockquote>
+<details class="trail">
+<summary>Decision trail</summary>
+<p class="trail-empty">No decisions target this assertion.</p>
+</details>
+</article>
+<article class="card status-accepted" id="card-review+roadmaps">
+<div class="card-head">
+<h3 class="card-value">Charter review (19 proposed amendments) and coordinated v0 roadmaps landed.</h3>
+<span class="badge badge-accepted">accepted</span>
+</div>
+<div class="card-meta">
+<span class="meta-actor">fable</span>
+<span class="meta-method">delegate-proposal</span>
+<span class="meta-date">valid from 2026-07-10</span>
+<span class="meta-source"><code>commit:57b3716</code></span>
+</div>
+<blockquote class="card-reason">&quot;Critical review of both charters (adversarial passes; 19 proposed amendments G-A1..9 / K-A1..10) plus coordinated v0 roadmaps sharing one milestone spine (M0 Alignment .. M4 Reality Test) and the joint Slice Zero fixture.&quot; ... &quot;Incorporates steward review comments of 2026-07-10.&quot; (commit 57b3716)</blockquote>
+<details class="trail">
+<summary>Decision trail</summary>
+<p class="trail-empty">No decisions target this assertion.</p>
+</details>
+</article>
+<article class="card status-accepted" id="card-amendments-adopted+m0-decision-lock">
+<div class="card-head">
+<h3 class="card-value">Amendments G-A1..9/K-A1..10 adopted; M0 substrate, scope, and autonomy posture locked.</h3>
+<span class="badge badge-accepted">accepted</span>
+</div>
+<div class="card-meta">
+<span class="meta-actor">govert</span>
+<span class="meta-method">steward-decision</span>
+<span class="meta-date">valid from 2026-07-10</span>
+<span class="meta-source"><code>commit:3d7eadd</code></span>
+</div>
+<blockquote class="card-reason">&quot;By steward direction (&quot;proceed with the roadmap&quot;), amendments G-A1…G-A9 and K-A1…K-A10 as specified in CHARTER-REVIEW.md &#167;7 are adopted for the formative phase.&quot; M0 decision lock — substrate (steward): &quot;modern C# on .NET 10 (net10.0), SQLite databases, CLI + static HTML tooling and visualization.&quot; Cost posture (steward): &quot;implementation by cost-optimized agents (Sonnet-class) against written contracts; steward-tier effort reserved for contracts, integration gates, and review.&quot; (AMENDMENTS.md 2026-07-10; commit 3d7eadd)</blockquote>
+<details class="trail">
+<summary>Decision trail</summary>
+<p class="trail-empty">No decisions target this assertion.</p>
+</details>
+</article>
+<article class="card status-accepted" id="card-m1-increment-landed">
+<div class="card-head">
+<h3 class="card-value">M1 increment landed: the Port Atlas runs end to end on Slice Zero.</h3>
+<span class="badge badge-accepted">accepted</span>
+</div>
+<div class="card-meta">
+<span class="meta-actor">fable</span>
+<span class="meta-method">delegate-proposal</span>
+<span class="meta-date">valid from 2026-07-11</span>
+<span class="meta-source"><code>commit:5c3e96d</code></span>
+</div>
+<blockquote class="card-reason">&quot;The full KodePorter-on-Gneiss story runs end to end on Slice Zero (showcase/m1/run-m1.ps1): pin + map both sides (102 Rust + 67 C# entities)... a 28/28 differential run Rust-vs-C# under io-agreement-v1, the Atlas rendered... 77 tests green (31 Gneiss + 46 KodePorter) + 47 Rust-side.&quot; (commit 5c3e96d)</blockquote>
+<details class="trail">
+<summary>Decision trail</summary>
+<p class="trail-empty">No decisions target this assertion.</p>
+</details>
+</article>
+<article class="card status-accepted" id="card-behavior-subject-correction">
+<div class="card-head">
+<h3 class="card-value">Behavior claims corrected to per-claim subjects (behavior:&lt;unit&gt;:&lt;id&gt;).</h3>
+<span class="badge badge-accepted">accepted</span>
+</div>
+<div class="card-meta">
+<span class="meta-actor">fable</span>
+<span class="meta-method">delegate-proposal</span>
+<span class="meta-date">valid from 2026-07-11</span>
+<span class="meta-source"><code>commit:5c3e96d</code></span>
+</div>
+<blockquote class="card-reason">&quot;Model corrections found by the story itself: behavior claims get per-claim subjects (behavior:&lt;unit&gt;:&lt;id&gt;) - shared unit subjects collided claim keys so accepting one claim defeated its siblings.&quot; (commit 5c3e96d, found during M1 story integration 2026-07-10)</blockquote>
+<details class="trail">
+<summary>Decision trail</summary>
+<p class="trail-empty">No decisions target this assertion.</p>
+</details>
+</article>
+<article class="card status-defeated superseded" id="card-post-M1-positioning-map-is-product">
+<div class="card-head">
+<h3 class="card-value">KodePorter positioning: the map is the product; orchestration is a consumer.</h3>
+<span class="badge badge-defeated">defeated</span>
+</div>
+<div class="card-meta">
+<span class="meta-actor">govert</span>
+<span class="meta-method">steward-decision</span>
+<span class="meta-date">valid from 2026-07-11</span>
+<span class="meta-source"><code>commit:648d29c</code></span>
+</div>
+<blockquote class="card-reason">&quot;KodePorter positioning clarified (charter &#167;14 paragraph added): the system of record for a port — the explicit map with typed imperfections of the mapping itself; orchestration methods are consumers, never components. Lessons about porting correctly are absorbed as schema and affordances, never as method prose in the product.&quot; (AMENDMENTS.md 2026-07-11; commit 648d29c)</blockquote>
+<div class="superseded-banner">
+Superseded by <a href="#tx-10">govert on 2026-07-11T14:49:58.0000000Z</a>: “&quot;Seven decisions, superseding the same-day narrower positioning where they conflict&quot; — the service realization supersedes the same morning&#39;s…”
+</div>
+<details class="trail">
+<summary>Decision trail (1)</summary>
+<ul class="trail-list">
+<li><span class="trail-kind kind-supersedes">supersedes</span> by <strong>govert</strong> on 2026-07-11T14:49:58.0000000Z — &quot;Seven decisions, superseding the same-day narrower positioning where they conflict&quot; — the service realization supersedes the same morning&#39;s…</li>
+</ul>
+</details>
+</article>
+<article class="card status-accepted" id="card-service-realization-seven-decisions">
+<div class="card-head">
+<h3 class="card-value">The service realization: two layers, three Gneiss tiers, seven ratified directions.</h3>
+<span class="badge badge-accepted">accepted</span>
+</div>
+<div class="card-meta">
+<span class="meta-actor">govert</span>
+<span class="meta-method">steward-decision</span>
+<span class="meta-date">valid from 2026-07-11</span>
+<span class="meta-source"><code>commit:b5890cf</code></span>
+</div>
+<blockquote class="card-reason">&quot;Seven decisions, superseding the same-day narrower positioning where they conflict… Three Gneiss tiers, governance now. Per-port ledgers; the KodePorter meta-ledger (porting knowledge, transformation rules, method-skill — flagships feed it, projects import pinned knowledge from it); the FireHorseCoding governance ledger (meta-meta), bootstrapped in M1.5 with this redirection as its first recorded decision. AMENDMENTS.md becomes its export.&quot; (AMENDMENTS.md 2026-07-11, second entry; commit b5890cf)</blockquote>
+<details class="trail">
+<summary>Decision trail</summary>
+<p class="trail-empty">No decisions target this assertion.</p>
+</details>
+</article>
+<article class="card status-accepted" id="card-grounded-semantics-ratified">
+<div class="card-head">
+<h3 class="card-value">Grounded pairwise conflict semantics and consumed-set transitive closure ratified.</h3>
+<span class="badge badge-accepted">accepted</span>
+</div>
+<div class="card-meta">
+<span class="meta-actor">govert</span>
+<span class="meta-method">steward-decision</span>
+<span class="meta-date">valid from 2026-07-11</span>
+<span class="meta-source"><code>commit:3fcfd0b</code></span>
+</div>
+<blockquote class="card-reason">&quot;RATIFIED: grounded pairwise conflict semantics + consumed-set transitive closure. The constitutional wording tightens to its intent: evaluation must be unique, deterministic, and monotone — no choice points, no nonmonotone revision loops; bounded monotone closures (the decision-effectiveness pass, grounded conflict labeling, consumed-set closure) satisfy it.&quot; (AMENDMENTS.md 2026-07-11, second entry item 7; commit 3fcfd0b)</blockquote>
+<details class="trail">
+<summary>Decision trail</summary>
+<p class="trail-empty">No decisions target this assertion.</p>
+</details>
+</article>
+</div>
+</section>
+</main>
+<footer class="lens-footer">Rendered from <code>ledger-export.jsonl</code> — the committed durable artifact. Regenerate with <code>govledger export --dir governance</code>.</footer>
+</body>
+</html>
