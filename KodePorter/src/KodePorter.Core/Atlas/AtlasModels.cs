@@ -126,11 +126,27 @@ internal sealed record AtlasTreemapGroup(
     string Key, int NonTestCount, int TestCount, string Coverage, bool Stale);
 
 /// <param name="Svg">Raw, already-escaped inline &lt;svg&gt; markup for this side's level-1 treemap.</param>
+/// <param name="Groups">Non-test groups only (NonTestCount &gt; 0) — the same set that was laid
+/// out into the SVG, in the same descending-area order; a group with zero non-test entities
+/// renders no rectangle (area = non-test entity count) and must not inflate this list or its
+/// <c>Count</c> either (visual-review defect: test-only per-file groups pollute the group count).</param>
+/// <param name="TestOnlyGroupCount">Number of first-segment groups excluded from
+/// <paramref name="Groups"/> because they contain zero non-test entities (e.g. per-file Rust
+/// integration-test crates) — reported honestly in the Overview caption alongside
+/// <paramref name="TestTotal"/> rather than silently dropped.</param>
+/// <param name="SplitPrefix">The one first-segment (<see cref="AtlasOverviewBuilder.TopLevelKey"/>)
+/// key that <see cref="AtlasOverviewBuilder"/> re-keyed by its first TWO segments because it held
+/// more than half this side's non-test entities (visual-review defect: a single dominant group
+/// collapsing the whole treemap into one rectangle), or null if the adaptive rule did not fire.
+/// Threaded through to the JS data island so client-side tree-row tagging and the drill-down
+/// breakdown key entities identically to the server-rendered rectangles.</param>
 internal sealed record AtlasOverviewSide(
     string Svg,
     IReadOnlyList<AtlasTreemapGroup> Groups,
     int NonTestTotal,
-    int TestTotal);
+    int TestTotal,
+    int TestOnlyGroupCount,
+    string? SplitPrefix);
 
 internal sealed record AtlasOverview(AtlasOverviewSide Source, AtlasOverviewSide Target);
 
@@ -147,6 +163,13 @@ internal sealed record AtlasOverview(AtlasOverviewSide Source, AtlasOverviewSide
 /// </summary>
 internal sealed record AtlasLabelInfo(string ContextName, string ContextHash, long DataCut, long DefCut, int ConsumedCount, string Receipt);
 
+/// <param name="SourceTreemapSplitPrefix">Mirrors <c>Overview.Source.SplitPrefix</c> — serialized
+/// separately (unlike <see cref="Overview"/> itself) because the client-side tree/drill-down JS
+/// needs to key entities the same way the server-rendered treemap rectangles did, and
+/// <see cref="Overview"/>'s SVG is embedded directly as markup rather than through the data
+/// island.</param>
+/// <param name="TargetTreemapSplitPrefix">Target-side counterpart of
+/// <paramref name="SourceTreemapSplitPrefix"/>.</param>
 internal sealed record AtlasData(
     AtlasHeader Header,
     HealthReport Health,
@@ -160,4 +183,6 @@ internal sealed record AtlasData(
     AtlasFooter Footer,
     AtlasAbsenceLists Absences,
     IReadOnlyList<AtlasContinuityCandidate> ContinuityCandidates,
+    string? SourceTreemapSplitPrefix,
+    string? TargetTreemapSplitPrefix,
     [property: System.Text.Json.Serialization.JsonIgnore] AtlasOverview Overview);

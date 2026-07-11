@@ -41,10 +41,85 @@ internal static class AtlasOverviewBuilder
         return idxDot >= 0 ? symbolPath[..idxDot] : symbolPath;
     }
 
+    /// <summary>The first TWO `::`/`.`-segments of a symbolPath — only ever used to re-key the one
+    /// dominant first-segment group <see cref="FindDominantGroupToSplit"/> decides to split (visual
+    /// review defect: e.g. every C# namespace nested under one product prefix like "FrankenTui.*"
+    /// collapsing into a single giant rectangle). Mirrors <see cref="TopLevelKey"/>'s rust-`::`-
+    /// before-C#-`.` separator preference; falls back to the whole symbolPath when there is no
+    /// second segment (e.g. the group's own crate/namespace-root entity), so such an entity becomes
+    /// its own singleton two-segment group rather than silently colliding with a truncated key.
+    /// </summary>
+    public static string TwoSegmentKey(string symbolPath)
+    {
+        int idxColon = symbolPath.IndexOf("::", StringComparison.Ordinal);
+        if (idxColon >= 0)
+        {
+            int idxColon2 = symbolPath.IndexOf("::", idxColon + 2, StringComparison.Ordinal);
+            return idxColon2 >= 0 ? symbolPath[..idxColon2] : symbolPath;
+        }
+        int idxDot = symbolPath.IndexOf('.');
+        if (idxDot >= 0)
+        {
+            int idxDot2 = symbolPath.IndexOf('.', idxDot + 1);
+            return idxDot2 >= 0 ? symbolPath[..idxDot2] : symbolPath;
+        }
+        return symbolPath;
+    }
+
+    /// <summary>
+    /// Visual-review defect fix: grouping purely by <see cref="TopLevelKey"/> can produce one
+    /// degenerate group holding almost an entire side (e.g. every C# namespace nested under a
+    /// single product prefix), rendering as one giant, uninformative rectangle instead of a useful
+    /// "see the whole port at a glance" treemap. Deterministic adaptive rule, applied at most once
+    /// (two-segment max depth — the freshly split two-segment groups are never re-checked against
+    /// the 50% rule, so a sub-namespace that is itself &gt;50% of its parent's share after the split
+    /// stays as one rectangle rather than fragmenting further):
+    ///   1. Group by the first `::`/`.`-segment (<see cref="TopLevelKey"/>), same as before.
+    ///   2. If the single largest such group (by non-test entity count — area is non-test entity
+    ///      count; ties broken by <see cref="StringComparer.Ordinal"/> key, matching the layout's
+    ///      own tie-break discipline) holds STRICTLY MORE THAN 50% of this side's total non-test
+    ///      entity count, AND at least one of that group's non-test entities actually has a second
+    ///      segment to split on, that ONE group is re-keyed by <see cref="TwoSegmentKey"/> instead
+    ///      of <see cref="TopLevelKey"/>. Every other first-segment group is left as-is.
+    /// Applies identically to rust `::`-paths and C#-shaped `.`-paths (same rule, same code path);
+    /// rust paths are already well-distributed across crates so this rarely fires there.
+    /// Returns the first-segment key that should be split (or null if the rule does not fire).
+    /// </summary>
+    private static string? FindDominantGroupToSplit(IReadOnlyList<Entity> entities)
+    {
+        int totalNonTest = entities.Count(e => !e.IsTest);
+        if (totalNonTest == 0)
+            return null;
+
+        var largest = entities
+            .Where(e => !e.IsTest)
+            .GroupBy(e => TopLevelKey(e.SymbolPath), StringComparer.Ordinal)
+            .Select(g => (Key: g.Key, NonTest: g.Count(), HasSecondSegment: g.Any(e => TwoSegmentKey(e.SymbolPath) != g.Key)))
+            .OrderByDescending(t => t.NonTest)
+            .ThenBy(t => t.Key, StringComparer.Ordinal)
+            .First();
+
+        // "> 50%" via integer comparison (NonTest * 2 > total) to avoid floating-point rounding
+        // making the boundary non-deterministic across platforms.
+        bool exceedsHalf = largest.NonTest * 2 > totalNonTest;
+        return exceedsHalf && largest.HasSecondSegment ? largest.Key : null;
+    }
+
+    /// <summary>The actual overview-treemap grouping key for one entity: <see cref="TopLevelKey"/>,
+    /// unless it falls under <paramref name="splitPrefix"/> (the one group
+    /// <see cref="FindDominantGroupToSplit"/> chose to split), in which case
+    /// <see cref="TwoSegmentKey"/>.</summary>
+    private static string GroupKey(string symbolPath, string? splitPrefix)
+    {
+        string top = TopLevelKey(symbolPath);
+        return splitPrefix is not null && top == splitPrefix ? TwoSegmentKey(symbolPath) : top;
+    }
+
     private static AtlasOverviewSide BuildSide(
         IReadOnlyList<Entity> entities, ISet<string> corresponded, ISet<string> candidateOnly, ISet<string> stale)
     {
-        var byKey = entities.GroupBy(e => TopLevelKey(e.SymbolPath), StringComparer.Ordinal);
+        string? splitPrefix = FindDominantGroupToSplit(entities);
+        var byKey = entities.GroupBy(e => GroupKey(e.SymbolPath, splitPrefix), StringComparer.Ordinal);
 
         var groups = new List<AtlasTreemapGroup>();
         int nonTestTotal = 0, testTotal = 0;
@@ -67,18 +142,22 @@ internal static class AtlasOverviewBuilder
             groups.Add(new AtlasTreemapGroup(g.Key, nonTest, test, coverage, groupStale));
         }
 
+        // Visual-review defect fix: a group with zero non-test entities renders no rectangle (area
+        // = non-test entity count) and must not inflate the group count either — excluded from both
+        // the layout input and the primary "N groups" figure (its test entities still count toward
+        // TestTotal, so the caption can report both numbers honestly instead of dropping them).
         // Deterministic squarify input order: descending area, ties broken by key (K-D3 discipline
         // — no incidental ordering leaking through).
-        var layoutOrder = groups
+        var nonTestGroups = groups
             .Where(g => g.NonTestCount > 0)
             .OrderByDescending(g => g.NonTestCount)
             .ThenBy(g => g.Key, StringComparer.Ordinal)
             .ToList();
+        int testOnlyGroupCount = groups.Count - nonTestGroups.Count;
 
-        string svg = RenderSvg(layoutOrder);
+        string svg = RenderSvg(nonTestGroups);
 
-        var displayOrder = groups.OrderByDescending(g => g.NonTestCount).ThenBy(g => g.Key, StringComparer.Ordinal).ToList();
-        return new AtlasOverviewSide(svg, displayOrder, nonTestTotal, testTotal);
+        return new AtlasOverviewSide(svg, nonTestGroups, nonTestTotal, testTotal, testOnlyGroupCount, splitPrefix);
     }
 
     private static string RenderSvg(IReadOnlyList<AtlasTreemapGroup> groups)

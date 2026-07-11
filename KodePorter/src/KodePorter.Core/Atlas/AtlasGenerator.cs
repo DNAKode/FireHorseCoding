@@ -117,7 +117,7 @@ public static class AtlasGenerator
         var overview = BuildOverview(sourceEntities, targetEntities, correspondences, staleSourceSymbols, staleTargetSymbols);
 
         var data = new AtlasData(header, health, labelInfo, sourceNodes, targetNodes, atlasCorrespondences, atlasUnits, atlasClaims, atlasRuns, footer,
-            absences, continuityCandidates, overview);
+            absences, continuityCandidates, overview.Source.SplitPrefix, overview.Target.SplitPrefix, overview);
 
         return AtlasHtmlRenderer.Render(data);
     }

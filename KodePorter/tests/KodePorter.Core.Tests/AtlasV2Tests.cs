@@ -108,6 +108,116 @@ public class AtlasV2Tests
         Assert.Contains("cov-uncovered", string.Join("", svgs1));
     }
 
+    /// <summary>
+    /// FrankenTui-probe visual-review defect (PROBE-REPORT.md §7 finding 1 / CONTRACT-M15.md §6.2):
+    /// grouping purely by the first `::`/`.`-segment can leave one group holding almost the whole
+    /// side (e.g. every C# namespace nested under one product prefix), rendering as a single giant,
+    /// uninformative rectangle. The fixture's "FrankenTui" first-segment group holds 5 of the
+    /// target side's 7 non-test entities (~71%, over the 50% threshold) and has real substructure
+    /// to split on — it must be re-keyed by its first TWO segments into "FrankenTui.Runtime" (3:
+    /// Alpha, Beta, and the 3-segment Deep.Nested, which must collapse into the two-segment key,
+    /// not get its own third-level rectangle) and "FrankenTui.Widgets" (2: Gamma, Delta). "Other"
+    /// stays well under 50% and single-segment, untouched by the rule.
+    /// </summary>
+    [Fact]
+    public void DominantFirstSegmentGroupSplitsIntoTwoSegmentGroupsWhileOthersStaySingleSegment()
+    {
+        using var scratch = new TempDirectory();
+        string workspaceDir = BuildOverviewWorkspace(scratch.Path, TrivialSourceEntities, DominantSplitTargetEntities);
+
+        using var store = new MapStore(Path.Combine(workspaceDir, "kpmap.db"));
+        using var binding = GneissBinding.Initialize(workspaceDir);
+
+        string html = AtlasGenerator.Generate(workspaceDir, store, binding, new DateTimeOffset(2026, 7, 10, 12, 0, 0, TimeSpan.Zero));
+        var svgs = ExtractTreemapSvgs(html);
+        Assert.Equal(2, svgs.Count);
+        string targetSvg = svgs[1];
+
+        Assert.Contains("data-key=\"FrankenTui.Runtime\" data-nontest=\"3\" data-test=\"0\"", targetSvg, StringComparison.Ordinal);
+        Assert.Contains("data-key=\"FrankenTui.Widgets\" data-nontest=\"2\" data-test=\"0\"", targetSvg, StringComparison.Ordinal);
+        Assert.Contains("data-key=\"Other\" data-nontest=\"2\" data-test=\"0\"", targetSvg, StringComparison.Ordinal);
+
+        // The pre-split "FrankenTui" umbrella rectangle must be gone (proves the split actually
+        // happened, not a vacuous pass)...
+        Assert.DoesNotContain("data-key=\"FrankenTui\"", targetSvg, StringComparison.Ordinal);
+        // ...and the split must not go a third segment deep (two-segment max depth: recursion
+        // applies at most once).
+        Assert.DoesNotContain("data-key=\"FrankenTui.Runtime.Deep\"", targetSvg, StringComparison.Ordinal);
+        // "Other" must stay single-segment (the rule only ever touches the ONE dominant group).
+        Assert.DoesNotContain("data-key=\"Other.Epsilon\"", targetSvg, StringComparison.Ordinal);
+
+        // The split prefix is threaded into the data island for the client-side tree/drill-down JS
+        // to key entities identically to the server-rendered rectangles.
+        using var doc = JsonDocument.Parse(ExtractDataIsland(html));
+        Assert.Equal("FrankenTui", doc.RootElement.GetProperty("targetTreemapSplitPrefix").GetString());
+        Assert.Equal(JsonValueKind.Null, doc.RootElement.GetProperty("sourceTreemapSplitPrefix").ValueKind);
+    }
+
+    /// <summary>
+    /// FrankenTui-probe visual-review defect (PROBE-REPORT.md §2/§7 finding 1): per-file Rust
+    /// integration-test crates group cleanly by <c>TopLevelKey</c> but contain zero non-test
+    /// entities, so they must render no rectangle (area = non-test entity count) AND must not
+    /// inflate the primary "N groups" figure — the caption states both the excluded-group count and
+    /// the hidden-test-entity count honestly instead of silently dropping them.
+    /// </summary>
+    [Fact]
+    public void TestOnlyGroupsAreExcludedFromLayoutAndPrimaryCountButCaptionReportsBothNumbers()
+    {
+        using var scratch = new TempDirectory();
+        string workspaceDir = BuildOverviewWorkspace(scratch.Path, TestOnlyGroupsSourceEntities, TrivialTargetEntities);
+
+        using var store = new MapStore(Path.Combine(workspaceDir, "kpmap.db"));
+        using var binding = GneissBinding.Initialize(workspaceDir);
+
+        string html = AtlasGenerator.Generate(workspaceDir, store, binding, new DateTimeOffset(2026, 7, 10, 12, 0, 0, TimeSpan.Zero));
+        var svgs = ExtractTreemapSvgs(html);
+        Assert.Equal(2, svgs.Count);
+        string sourceSvg = svgs[0];
+
+        // Only the 2 real (non-test) groups render rectangles; the 3 test-only per-file-crate-style
+        // groups render nothing and must not appear at all.
+        Assert.Equal(2, Regex.Matches(sourceSvg, "<rect class=\"treemap-rect").Count);
+        Assert.Contains("data-key=\"pkg_a\"", sourceSvg, StringComparison.Ordinal);
+        Assert.Contains("data-key=\"pkg_b\"", sourceSvg, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-key=\"baseline_capture\"", sourceSvg, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-key=\"shadow_run_comparator\"", sourceSvg, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-key=\"mpc_vs_pi_evaluation\"", sourceSvg, StringComparison.Ordinal);
+
+        // Hand-computed against the fixture: 5 first-segment groups total (pkg_a, pkg_b,
+        // baseline_capture, shadow_run_comparator, mpc_vs_pi_evaluation) — 3 of them test-only (0
+        // non-test entities each, 4 test entities total) — so the primary count must read 2 groups
+        // / 6 non-test entities, with both excluded numbers stated in the parenthetical.
+        Assert.Contains(
+            "<p class=\"overview-counts\">2 groups · 6 non-test entities (3 test-only groups not shown · 4 test entities hidden by default)</p>",
+            html, StringComparison.Ordinal);
+    }
+
+    /// <summary>TESTS (c): both defect fixes above stay deterministic together — two generations
+    /// over the same workspace produce byte-identical treemap SVGs.</summary>
+    [Fact]
+    public void AdaptiveSplitAndTestOnlyGroupExclusionStayDeterministicAcrossTwoBuilds()
+    {
+        using var scratch = new TempDirectory();
+        string workspaceDir = BuildOverviewWorkspace(scratch.Path, TestOnlyGroupsSourceEntities, DominantSplitTargetEntities);
+
+        using var store = new MapStore(Path.Combine(workspaceDir, "kpmap.db"));
+        using var binding = GneissBinding.Initialize(workspaceDir);
+
+        string html1 = AtlasGenerator.Generate(workspaceDir, store, binding, new DateTimeOffset(2026, 7, 10, 12, 0, 0, TimeSpan.Zero));
+        string html2 = AtlasGenerator.Generate(workspaceDir, store, binding, new DateTimeOffset(2026, 7, 10, 12, 5, 30, TimeSpan.Zero));
+
+        var svgs1 = ExtractTreemapSvgs(html1);
+        var svgs2 = ExtractTreemapSvgs(html2);
+        Assert.Equal(2, svgs1.Count);
+        Assert.Equal(svgs1.Count, svgs2.Count);
+        for (int i = 0; i < svgs1.Count; i++)
+            Assert.Equal(svgs1[i], svgs2[i]);
+
+        // Sanity: this really exercised both defects together, not vacuously.
+        Assert.Contains("data-key=\"FrankenTui.Runtime\"", svgs1[1], StringComparison.Ordinal);
+        Assert.DoesNotContain("data-key=\"baseline_capture\"", svgs1[0], StringComparison.Ordinal);
+    }
+
     private static List<string> ExtractTreemapSvgs(string html)
     {
         var result = new List<string>();
@@ -228,4 +338,92 @@ public class AtlasV2Tests
     }
 
     private static string Hash(string s) => KodePorter.Core.Hashing.Sha256Util.HexOfUtf8(s);
+
+    // ---- Adaptive-split / test-only-group fixtures (defect-fix tests above) ---------------------
+
+    /// <summary>Builds a workspace from directly-supplied source/target entity lists (bypassing the
+    /// provider pipeline, same discipline as <see cref="BuildScaleWorkspace"/>) — used by the small,
+    /// hand-computable fixtures for the two Overview-treemap defect fixes.</summary>
+    private static string BuildOverviewWorkspace(
+        string scratchDir, Func<string, IEnumerable<Entity>> buildSourceEntities, Func<string, IEnumerable<Entity>> buildTargetEntities)
+    {
+        string workspaceDir = Path.Combine(scratchDir, "workspace");
+        Directory.CreateDirectory(workspaceDir);
+
+        ProjectYaml.Write(workspaceDir, new ProjectYamlDoc("overview-fixture-port", "rust->csharp", "fixtures/overview/rust", "fixtures/overview/csharp", "kp-default@1"));
+
+        using var store = new MapStore(Path.Combine(workspaceDir, "kpmap.db"));
+        using var binding = GneissBinding.Initialize(workspaceDir);
+
+        var created = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.Zero);
+        string sourceTreeHash = new string('a', 64);
+        string targetTreeHash = new string('b', 64);
+        var sourceBasis = new Basis(
+            EntityIdCalculator.ComputeBasisId(BasisSide.Source, "d1", sourceTreeHash),
+            BasisSide.Source, "d1", "fixtures/overview/rust", sourceTreeHash, Toolchain: null, Analyzer: "rust-syn", Created: created);
+        var targetBasis = new Basis(
+            EntityIdCalculator.ComputeBasisId(BasisSide.Target, "base", targetTreeHash),
+            BasisSide.Target, "base", "fixtures/overview/csharp", targetTreeHash, Toolchain: null, Analyzer: "csharp-roslyn", Created: created);
+        store.InsertBasis(sourceBasis);
+        store.InsertBasis(targetBasis);
+
+        store.InsertEntities(sourceBasis.Id, buildSourceEntities(sourceBasis.Id).ToList());
+        store.InsertEntities(targetBasis.Id, buildTargetEntities(targetBasis.Id).ToList());
+
+        return workspaceDir;
+    }
+
+    private static Entity MakeEntity(BasisSide side, string basisId, string kind, string name, string symbolPath, bool isTest) =>
+        new(EntityIdCalculator.ComputeEntityId(side, kind, symbolPath), basisId, kind, name, symbolPath,
+            side == BasisSide.Source ? "src/lib.rs" : "File.cs", 1, 2, Hash(symbolPath), null, "clean", isTest);
+
+    /// <summary>Two bare top-level modules (no "::" at all, so neither has a second segment to
+    /// split on regardless) in separate ~50%-share groups — safely inert for whichever side of a
+    /// test doesn't care about that side's split/test-only-group behavior.</summary>
+    private static IEnumerable<Entity> TrivialSourceEntities(string basisId)
+    {
+        yield return MakeEntity(BasisSide.Source, basisId, "module", "srcmod", "srcmod", isTest: false);
+        yield return MakeEntity(BasisSide.Source, basisId, "module", "othermod", "othermod", isTest: false);
+    }
+
+    /// <summary>Mirrors <see cref="TrivialSourceEntities"/> on the C#-shaped target side.</summary>
+    private static IEnumerable<Entity> TrivialTargetEntities(string basisId)
+    {
+        yield return MakeEntity(BasisSide.Target, basisId, "namespace", "Ns0", "Ns0", isTest: false);
+        yield return MakeEntity(BasisSide.Target, basisId, "namespace", "Ns1", "Ns1", isTest: false);
+    }
+
+    /// <summary>"FrankenTui" holds 5 of 7 (~71%) non-test entities on this side — over the 50%
+    /// threshold — split across two real subgroups ("Runtime", "Widgets") plus a 3-segment entity
+    /// to prove the split caps at two segments. "Other" (2/7, ~29%) stays under the threshold and
+    /// single-segment.</summary>
+    private static IEnumerable<Entity> DominantSplitTargetEntities(string basisId)
+    {
+        yield return MakeEntity(BasisSide.Target, basisId, "class", "Alpha", "FrankenTui.Runtime.Alpha", isTest: false);
+        yield return MakeEntity(BasisSide.Target, basisId, "class", "Beta", "FrankenTui.Runtime.Beta", isTest: false);
+        yield return MakeEntity(BasisSide.Target, basisId, "class", "Nested", "FrankenTui.Runtime.Deep.Nested", isTest: false);
+        yield return MakeEntity(BasisSide.Target, basisId, "class", "Gamma", "FrankenTui.Widgets.Gamma", isTest: false);
+        yield return MakeEntity(BasisSide.Target, basisId, "class", "Delta", "FrankenTui.Widgets.Delta", isTest: false);
+        yield return MakeEntity(BasisSide.Target, basisId, "class", "Epsilon", "Other.Epsilon", isTest: false);
+        yield return MakeEntity(BasisSide.Target, basisId, "class", "Zeta", "Other.Zeta", isTest: false);
+    }
+
+    /// <summary>2 real crates ("pkg_a", "pkg_b", 3 non-test entities each — an exact 50/50 tie,
+    /// deliberately at the "not strictly greater than half" boundary so neither triggers the
+    /// adaptive split) plus 3 per-file-test-crate-style groups whose entities are ALL is_test — 0
+    /// non-test entities each, mirroring the FrankenTui probe's per-file Rust integration-test
+    /// crates (PROBE-REPORT.md §7 finding 1).</summary>
+    private static IEnumerable<Entity> TestOnlyGroupsSourceEntities(string basisId)
+    {
+        yield return MakeEntity(BasisSide.Source, basisId, "fn", "A", "pkg_a::A", isTest: false);
+        yield return MakeEntity(BasisSide.Source, basisId, "fn", "B", "pkg_a::B", isTest: false);
+        yield return MakeEntity(BasisSide.Source, basisId, "fn", "C", "pkg_a::C", isTest: false);
+        yield return MakeEntity(BasisSide.Source, basisId, "fn", "A", "pkg_b::A", isTest: false);
+        yield return MakeEntity(BasisSide.Source, basisId, "fn", "B", "pkg_b::B", isTest: false);
+        yield return MakeEntity(BasisSide.Source, basisId, "fn", "C", "pkg_b::C", isTest: false);
+        yield return MakeEntity(BasisSide.Source, basisId, "fn", "case1", "baseline_capture::case1", isTest: true);
+        yield return MakeEntity(BasisSide.Source, basisId, "fn", "case2", "baseline_capture::case2", isTest: true);
+        yield return MakeEntity(BasisSide.Source, basisId, "fn", "case1", "shadow_run_comparator::case1", isTest: true);
+        yield return MakeEntity(BasisSide.Source, basisId, "fn", "case1", "mpc_vs_pi_evaluation::case1", isTest: true);
+    }
 }

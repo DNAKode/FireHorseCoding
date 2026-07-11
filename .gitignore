@@ -7,4 +7,5 @@ target/
 *.db-shm
 *.db-wal
 fixtures/slice-zero/workspace/
+flagships/*/workspace/
 TestResults/

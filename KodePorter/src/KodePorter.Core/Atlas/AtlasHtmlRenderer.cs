@@ -225,10 +225,20 @@ internal static class AtlasHtmlRenderer
         var sb = new StringBuilder();
         sb.Append("<div class=\"overview-side\">\n");
         sb.Append("<h3>").Append(Html.Escape(side)).Append("</h3>\n");
+        // Visual-review defect fix: s.Groups already excludes test-only groups (zero non-test
+        // entities, e.g. per-file Rust integration-test crates) from the primary count — reported
+        // honestly here alongside TestOnlyGroupCount/TestTotal rather than silently dropped.
         sb.Append("<p class=\"overview-counts\">").Append(s.Groups.Count).Append(" groups · ")
           .Append(s.NonTestTotal).Append(" non-test entities");
-        if (s.TestTotal > 0)
+        if (s.TestOnlyGroupCount > 0)
+        {
+            sb.Append(" (").Append(s.TestOnlyGroupCount).Append(" test-only groups not shown · ")
+              .Append(s.TestTotal).Append(" test entities hidden by default)");
+        }
+        else if (s.TestTotal > 0)
+        {
             sb.Append(" · ").Append(s.TestTotal).Append(" test entities (hidden by default)");
+        }
         sb.Append("</p>\n");
         sb.Append("<div class=\"treemap-wrap\" data-treemap-side=\"").Append(Html.Attr(side)).Append("\">\n");
         sb.Append(s.Svg).Append('\n');
@@ -801,6 +811,35 @@ internal static class AtlasHtmlRenderer
             return symbolPath;
           }
 
+          // Mirrors AtlasOverviewBuilder.TwoSegmentKey (C#) exactly: the first two `::`/`.`-
+          // segments, falling back to the whole symbolPath when there is no second segment.
+          function twoSegmentKey(symbolPath) {
+            var idx2a = symbolPath.indexOf("::");
+            if (idx2a >= 0) {
+              var idx2b = symbolPath.indexOf("::", idx2a + 2);
+              return idx2b >= 0 ? symbolPath.slice(0, idx2b) : symbolPath;
+            }
+            var idx1a = symbolPath.indexOf(".");
+            if (idx1a >= 0) {
+              var idx1b = symbolPath.indexOf(".", idx1a + 1);
+              return idx1b >= 0 ? symbolPath.slice(0, idx1b) : symbolPath;
+            }
+            return symbolPath;
+          }
+
+          // The overview treemap's actual grouping key for one entity: topLevelKey, UNLESS this
+          // entity falls under the one dominant first-segment group the server split into
+          // two-segment groups (AtlasOverviewBuilder.FindDominantGroupToSplit) — then
+          // twoSegmentKey instead. Kept in lockstep with the server via
+          // DATA.source/targetTreemapSplitPrefix so tree-row tagging (data-topkey) and the
+          // drill-down breakdown always key entities the same way the server-rendered treemap
+          // rectangles (data-key) did.
+          function groupKey(side, symbolPath) {
+            var top = topLevelKey(symbolPath);
+            var splitPrefix = side === "source" ? DATA.sourceTreemapSplitPrefix : DATA.targetTreemapSplitPrefix;
+            return splitPrefix && top === splitPrefix ? twoSegmentKey(symbolPath) : top;
+          }
+
           function makeTreeController(side, containerId, nodes) {
             var byId = {};
             var childrenByParent = {};
@@ -837,7 +876,7 @@ internal static class AtlasHtmlRenderer
               var row = document.createElement("div");
               row.className = badgesFor(node);
               row.setAttribute("data-entity-id", node.id);
-              row.setAttribute("data-topkey", topLevelKey(node.symbolPath));
+              row.setAttribute("data-topkey", groupKey(side, node.symbolPath));
               var toggle = document.createElement("span");
               toggle.className = "toggle";
               row.appendChild(toggle);
@@ -1103,7 +1142,7 @@ internal static class AtlasHtmlRenderer
           function renderDrill(side, key) {
             var el = document.getElementById("treemap-drill-" + side);
             var nodes = side === "source" ? (DATA.sourceTree || []) : (DATA.targetTree || []);
-            var inGroup = nodes.filter(function (n) { return !n.isTest && topLevelKey(n.symbolPath) === key; });
+            var inGroup = nodes.filter(function (n) { return !n.isTest && groupKey(side, n.symbolPath) === key; });
             var counts = {};
             var order = [];
             for (var i = 0; i < inGroup.length; i++) {

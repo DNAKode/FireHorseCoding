@@ -28,3 +28,14 @@ promotion trigger. Reviewed at every gate.
 | Criterion-based staleness for anchor-less `covers` correspondences | v0 staleness is anchor drift only; corr-covers is structurally exempt (its verification CLAIM does get stale-marked via the unit's criteria, so the signal exists — only the yaml corr entry lacks the flag) | first fixture where the claim-level signal is insufficient |
 | Why-tree status vocabulary alignment ("proposed" vs "proposed-unadmitted") | two code paths, two label sets; not a truth error | Atlas polish pass |
 | Harness distinctness attestation (source-cmd vs target-cmd provably different implementations) | inherent limit of black-box stdout diffing; noted in CONTRACT §6 | provenance binding of commands to map entities |
+
+## Added 2026-07-12, from the FrankenTui probe and M1.5 close
+
+| Item | Parked because | Promotion trigger |
+|---|---|---|
+| Per-project Roslyn compilation (project-reference graph instead of one flat BCL compilation) | probe finding: 96.2% of the C# map marked `degraded` (28,230 errors) — the signal saturates and stops being addressable | FrankenTui bootstrap (K8): required before resolution grades mean anything at brownfield scale |
+| Rust dump identity namespacing for per-file test crates | probe finding: 69 (kind,symbolPath) collisions silently dropped (0.71%) — K-D3 stress made concrete | bootstrap; fix = qualify per-file test-crate symbolPaths with their owning package |
+| Import collision surfacing (dropped-duplicate count in ImportResult + Atlas) | collisions currently invisible in health | with the namespacing fix above |
+| Provenance-pin freshness check (`kp` verb or probe step comparing recorded pin vs actual vendored checkout) | probe finding: FrankenTui.Net's PROVENANCE.md pin is ~2 months stale vs .external/frankentui | bootstrap |
+| Richer candidate heuristics (path-structure, doc-comment citations — FrankenTui.NET files cite their Rust source in headers!) + agent-proposed candidates | name-norm yielded 5 candidates / 6,780 skips with a structural false-positive mode (generic test-fixture names) | bootstrap (K8) — the header-comment citation heuristic looks highest-yield |
+| Transient SQLite-open retry in GneissLedger.Create/Open | parallel full-solution test runs flake ~1/run with SQLite Error 14 (environmental, Windows, cross-testhost contention); serial runs stable 143/143 twice | next Gneiss increment; until then run `dotnet test -m:1` for full-solution verification |
