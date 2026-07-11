@@ -109,3 +109,24 @@ Every cell is forced by the six rules plus the context pins — nothing ad hoc. 
 1. **Hypothesis admission without decisions** (rule 3 of `admitted`): auto-admitting high-confidence unreviewed links is operationally tempting (Smoothscrape does a version of this) and epistemically risky. Per-context threshold feels right; should *auto-admitted* acceptances be visibly badged in every downstream surface? (Position: yes, always.)
 2. **Decision scope:** does accepting hypothesis H accept the *assertion* or the *(subject, object) claim*? If the matcher re-proposes the same link with a new method next rebuild, the old decision should re-attach — which argues decisions target a **claim key** (type, subject, object, predicate), not an assertion id. This is the single trickiest identity question in the design; it decides whether P1's "decisions survive rebuild" works by construction or by fragile id-mapping. Current position: decisions may target either an assertion id *or* a claim key; the claim-key form is the norm for link hypotheses. Needs prototyping.
 3. **Cross-context writes:** may a decision be scoped to a context ("accepted for operations, not for billing")? Parsimony says no (decisions are global; contexts differ in *policy*, not in which decisions exist). Watch for a real counterexample.
+
+---
+
+## Amendment 2026-07-11 — multi-candidate conflict resolution (ratified)
+
+*Appended per the correction discipline; §1–§8 above are preserved as written. Full finding and
+rationale: [maxwell/THE-PAGE-v0-FINDINGS.md](maxwell/THE-PAGE-v0-FINDINGS.md) F2/F3.*
+
+§4 defines conflict and its strainer **pairwise** and was silent on three-plus mutually-chained
+candidates. Ratified semantics: pairwise attack graph (edges only between genuinely conflicting
+pairs; each edge contested through the strainer honoring StopRung), settled by **grounded
+labeling** iterated to fixpoint — unattacked candidates accepted; candidates attacked by an
+accepted winner defeated (with that winner as the recorded defeater); residue contested. Every
+recorded defeat therefore names a defeater that truly conflicts with the loser and itself ends
+accepted — `why()` never testifies falsely.
+
+§2's "belief must be a fold, not a search" is tightened to its intent: evaluation must be
+**unique, deterministic, and monotone — no choice points, no nonmonotone revision loops**.
+Bounded monotone closures (the decision-effectiveness pass, grounded conflict labeling, and the
+consumed-set closure over the decision graph that makes the label's definition true) satisfy the
+principle; ambiguity and solver-style search remain the kill signal.
