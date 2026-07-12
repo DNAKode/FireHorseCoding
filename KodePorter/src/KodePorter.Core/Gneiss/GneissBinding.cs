@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Gneiss.Cell;
 using KodePorter.Core.Hashing;
-using Microsoft.Data.Sqlite;
 
 namespace KodePorter.Core.Gneiss;
 
@@ -15,10 +14,9 @@ public enum KpVerdict
 /// <summary>
 /// KodePorter's binding to a workspace's gneiss.db ledger (CONTRACT.md §5): declares the kp.*
 /// predicates and the kp-current context at init, and exposes promotion/proposal/decision
-/// operations plus the current-belief view. Consumes Gneiss through Gneiss.Cell's public facade
-/// (charter §4.2 sidecar boundary) — no Gneiss internals (its C# `internal` types) are ever
-/// referenced. The one documented exception is <see cref="ListNotes"/>, tagged `// DIVERGENCE:`
-/// at its definition, pending a public listing method on the facade.
+/// operations plus the current-belief view. Consumes Gneiss exclusively through Gneiss.Cell's
+/// public facade (charter §4.2 sidecar boundary) — no Gneiss internals (its C# `internal` types),
+/// and no side-channel database connections, are ever referenced.
 /// </summary>
 public sealed class GneissBinding : IDisposable
 {
@@ -33,12 +31,10 @@ public sealed class GneissBinding : IDisposable
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = false };
 
     private readonly GneissLedger _ledger;
-    private readonly string _ledgerPath;
 
-    private GneissBinding(GneissLedger ledger, string ledgerPath)
+    private GneissBinding(GneissLedger ledger)
     {
         _ledger = ledger;
-        _ledgerPath = ledgerPath;
     }
 
     public static string LedgerPath(string workspaceDir) => Path.Combine(workspaceDir, "gneiss.db");
@@ -52,7 +48,7 @@ public sealed class GneissBinding : IDisposable
         string path = LedgerPath(workspaceDir);
         bool isNew = !File.Exists(path);
         var ledger = isNew ? GneissLedger.Create(path) : GneissLedger.Open(path);
-        var binding = new GneissBinding(ledger, path);
+        var binding = new GneissBinding(ledger);
         if (isNew)
             binding.DeclarePredicatesAndContext();
         return binding;
@@ -62,7 +58,7 @@ public sealed class GneissBinding : IDisposable
     public static GneissBinding Open(string workspaceDir)
     {
         string path = LedgerPath(workspaceDir);
-        return new GneissBinding(GneissLedger.Open(path), path);
+        return new GneissBinding(GneissLedger.Open(path));
     }
 
     private void DeclarePredicatesAndContext()
@@ -211,52 +207,17 @@ public sealed class GneissBinding : IDisposable
 
     // ---- Notes (K-A8 two-tier capture, CONTRACT-M15.md §3) ---------------------------------------
 
-    /// <summary>One row from the Gneiss note inbox.</summary>
-    public sealed record NoteInfo(string Id, string Wall, string Actor, string Text, string? PromotedAid);
-
     /// <summary>Records a free-form note in the Gneiss note inbox (`kp note`). Returns the note's id.</summary>
     public string Note(string text, string actor, string reason) =>
         _ledger.Note(new TxEnvelope(actor, reason, DateTimeOffset.UtcNow), text);
 
     /// <summary>
-    /// Lists every note in the workspace's note inbox, oldest first (`kp notes`).
-    ///
-    /// DIVERGENCE: Gneiss.Cell's facade v0.1 (CONTRACT-V01.md) exposes GneissLedger.Note(...) to
-    /// append to the note table, but no corresponding read/list method, and notes are not part of
-    /// ExportLedgerJsonl() (which covers only tx/assrt/dec/just — CONTRACT.md §2). Until Gneiss.Cell
-    /// lands a public listing method, this is the one place this binding steps outside the
-    /// sanctioned facade: a second, read-only connection to the same ledger.db file, reading only
-    /// the five columns of the note table as documented in CONTRACT-M15.md §3. Narrow, self-
-    /// contained, no write, no other schema assumed.
+    /// Lists every note in the workspace's note inbox, oldest first (`kp notes`). Passthrough to the
+    /// Gneiss.Cell facade's <see cref="GneissLedger.ListNotes"/> (CONTRACT-V01.md §6) — the raw,
+    /// read-only second connection this used before that method existed (a documented `// DIVERGENCE:`)
+    /// is gone, so the sidecar boundary is once again unbroken.
     /// </summary>
-    public IReadOnlyList<NoteInfo> ListNotes()
-    {
-        using var conn = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = _ledgerPath,
-            Mode = SqliteOpenMode.ReadOnly,
-        }.ToString());
-        conn.Open();
-
-        using var cmd = conn.CreateCommand();
-        // Ordered by rowid (SQLite's implicit, monotonically-increasing insertion-order column for
-        // this insert-only table) rather than wall, so two notes recorded within the same tick of
-        // wall-clock resolution still list in the order they were actually appended.
-        cmd.CommandText = "SELECT id, wall, actor, text, promoted_aid FROM note ORDER BY rowid";
-        using var reader = cmd.ExecuteReader();
-
-        var result = new List<NoteInfo>();
-        while (reader.Read())
-        {
-            result.Add(new NoteInfo(
-                reader.GetString(0),
-                reader.GetString(1),
-                reader.GetString(2),
-                reader.GetString(3),
-                reader.IsDBNull(4) ? null : reader.GetString(4)));
-        }
-        return result;
-    }
+    public IReadOnlyList<NoteInfo> ListNotes() => _ledger.ListNotes();
 
     // ---- Aid resolution -------------------------------------------------------------------------
 

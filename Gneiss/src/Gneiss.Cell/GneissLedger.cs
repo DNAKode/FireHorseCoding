@@ -677,6 +677,30 @@ public sealed class GneissLedger : IDisposable
         return id;
     }
 
+    /// <summary>
+    /// Lists every note in the note inbox, oldest first (CONTRACT-V01.md section 6). Ordered by
+    /// rowid — the note table's implicit, monotonically-increasing insertion-order column — rather
+    /// than by wall, so two notes recorded within the same wall-clock tick still list in the order
+    /// they were appended.
+    /// </summary>
+    public IReadOnlyList<NoteInfo> ListNotes()
+    {
+        var result = new List<NoteInfo>();
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT id, wall, actor, text, promoted_aid FROM note ORDER BY rowid";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(new NoteInfo(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                reader.IsDBNull(4) ? null : reader.GetString(4)));
+        }
+        return result;
+    }
+
     // ---- Export -------------------------------------------------------------------------------
 
     public IReadOnlyList<string> ExportLedgerJsonl()

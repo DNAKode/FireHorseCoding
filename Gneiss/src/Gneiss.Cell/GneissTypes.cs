@@ -1,6 +1,7 @@
 // Gneiss.Cell — public surface, per CONTRACT.md section 2.
-// Budget: 22 public types (raised from 20 by CONTRACT-V01.md section 4 — a conscious, recorded
-// adjustment for AppendResult and AssertionInfo — enforced by a reflection test).
+// Budget: 23 public types (raised from 20 by CONTRACT-V01.md — a conscious, recorded adjustment:
+// section 4 for AppendResult and AssertionInfo, the section 6 addendum for NoteInfo — enforced by
+// a reflection test).
 
 namespace Gneiss.Cell;
 
@@ -148,6 +149,18 @@ public sealed record AssertionInfo(
     string? Source,
     string? Method,
     int? ConfidenceBp);
+
+/// <summary>
+/// A single note from the ledger's note inbox, per <see cref="GneissLedger.ListNotes"/>.
+/// CONTRACT-V01.md section 6. <see cref="PromotedAid"/> is null until the note is promoted into an
+/// assertion.
+/// </summary>
+public sealed record NoteInfo(
+    string Id,
+    string Wall,
+    string Actor,
+    string Text,
+    string? PromotedAid);
 
 /// <summary>Errors raised by Gneiss.Cell. <see cref="Code"/> is a short machine-readable tag.</summary>
 public sealed class GneissException : Exception

@@ -41,3 +41,28 @@ pointing here. Nothing else becomes public.
 `KodePorter.Core.Gneiss.GneissBinding` currently recovers aids by scanning `ExportLedgerJsonl()`
 (documented `// DIVERGENCE:`). A follow-up KodePorter change (separate agent) removes those scans
 in favor of `AppendResult`/`GetAssertion`; do not modify KodePorter from this contract's scope.
+
+## 6. List notes (v0.1 addendum, 2026-07-12)
+
+```csharp
+public sealed record NoteInfo(string Id, string Wall, string Actor, string Text, string? PromotedAid);
+public IReadOnlyList<NoteInfo> ListNotes();  // every note, oldest first (insertion order)
+```
+
+`Note(...)` (CONTRACT-M15.md §3) appends to the `note` table but had no read side, and notes are
+not part of `ExportLedgerJsonl()` (which covers only tx/assrt/dec/just — CONTRACT.md §2), so a
+consumer had no sanctioned way to read them back. `ListNotes()` closes that gap: it returns every
+note in the ledger, oldest first — ordered by rowid (insertion order), not by `wall`, so two notes
+recorded within the same wall-clock tick still list in append order. `PromotedAid` is null until a
+note is promoted into an assertion.
+
+The public-type budget rises from **22** to **23** (NoteInfo) — a conscious, recorded adjustment
+(this addendum is the record); update `PublicSurfaceTests` to 23 with a comment pointing here.
+Nothing else becomes public.
+
+### Consumer note
+
+`KodePorter.Core.Gneiss.GneissBinding.ListNotes()` previously opened a second, read-only
+`SqliteConnection` directly to the ledger file and read the `note` table by hand (documented
+`// DIVERGENCE:`), the last side-channel around this facade. It now calls `ListNotes()` and returns
+`NoteInfo` directly; the raw connection and the divergence are gone.

@@ -6,7 +6,7 @@ namespace Gneiss.Cell.Tests;
 /// <summary>
 /// CONTRACT-V01.md — Gneiss.Cell facade v0.1: Append returns per-item aids (section 1); receipt ids
 /// become deterministic/content-derived with upsert (section 2); GetAssertion fetches by aid
-/// (section 3).
+/// (section 3); ListNotes reads the note inbox (section 6 addendum).
 /// </summary>
 public sealed class Test12_FacadeV01
 {
@@ -150,5 +150,33 @@ public sealed class Test12_FacadeV01
         l.Append(TestHelpers.Env("x", "seed", T0), new IAppendItem[] { new NewAssertion("Unrelated12", "p", GValue.Bool(true)) });
 
         Assert.Null(l.GetAssertion("not-a-real-aid"));
+    }
+
+    // ---- section 6 (addendum): ListNotes -------------------------------------------------------
+
+    [Fact]
+    public void ListNotes_Lists_Notes_Oldest_First_And_Unpromoted()
+    {
+        using var path = new TempFile();
+        using var l = GneissLedger.Create(path.Path);
+
+        Assert.Empty(l.ListNotes());
+
+        // Both notes share the same wall (T0): oldest-first therefore relies on insertion order
+        // (rowid), not the wall column, exactly as ListNotes documents.
+        var id1 = l.Note(TestHelpers.Env("govert", "note", T0), "first observation");
+        var id2 = l.Note(TestHelpers.Env("fable", "note", T0), "second observation");
+
+        var notes = l.ListNotes();
+        Assert.Equal(2, notes.Count);
+        Assert.Equal(new[] { id1, id2 }, notes.Select(n => n.Id));
+
+        Assert.Equal("first observation", notes[0].Text);
+        Assert.Equal("govert", notes[0].Actor);
+        Assert.Null(notes[0].PromotedAid);
+
+        Assert.Equal("second observation", notes[1].Text);
+        Assert.Equal("fable", notes[1].Actor);
+        Assert.Null(notes[1].PromotedAid);
     }
 }
