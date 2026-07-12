@@ -1,6 +1,7 @@
 using System.Text.Json;
 using KodePorter.Cli;
 using KodePorter.Core.Domain;
+using KodePorter.Core.Gneiss;
 using KodePorter.Core.Providers;
 using KodePorter.Core.Tests.Support;
 
@@ -165,6 +166,47 @@ public class CliM15SmokeTests
         Assert.Equal(1, exit);
     }
 
+    // ---- kp decide --actor (policy actors accepting on the record) ----------------------------------
+
+    [Fact]
+    public void DecideAcceptsOnTheRecordForACustomPolicyActor()
+    {
+        using var dir = new TempDirectory();
+        string workspaceDir = InitWorkspace(dir);
+
+        Run(workspaceDir, out _, "corr", "add", "--workspace", workspaceDir,
+            "--type", "implements", "--unit", "unit-a", "--id", "corr-policy");
+        var corr = Assert.Single(CorrespondencesYaml.Read(workspaceDir));
+        Assert.NotNull(corr.ClaimAid);
+
+        Run(workspaceDir, out string decideOut, "decide", "--workspace", workspaceDir,
+            "--subject", "corr:corr-policy", "--verdict", "accept", "--reason", "policy autoAccept on the record",
+            "--actor", "policy:kp-default@1");
+
+        Assert.Contains("Accepted claim", decideOut);
+        Assert.Contains("actor 'policy:kp-default@1'", decideOut);
+
+        using var binding = GneissBinding.Initialize(workspaceDir);
+        var view = binding.AskClaim(GneissBinding.CorrespondenceSubject("corr-policy"));
+        Assert.Single(view.Accepted);
+    }
+
+    [Fact]
+    public void DecideDefaultsToTheHumanActorWhenNoActorGiven()
+    {
+        using var dir = new TempDirectory();
+        string workspaceDir = InitWorkspace(dir);
+
+        Run(workspaceDir, out _, "corr", "add", "--workspace", workspaceDir,
+            "--type", "implements", "--unit", "unit-a", "--id", "corr-human");
+
+        Run(workspaceDir, out string decideOut, "decide", "--workspace", workspaceDir,
+            "--subject", "corr:corr-human", "--verdict", "accept", "--reason", "looks right");
+
+        Assert.Contains("Accepted claim", decideOut);
+        Assert.Contains("actor 'govert'", decideOut);
+    }
+
     // ---- kp verify run --independence --------------------------------------------------------------
 
     [Fact]
@@ -255,6 +297,60 @@ public class CliM15SmokeTests
         Assert.Equal("Ns.ModA.HeaderParser", candidate.Target!.SymbolPath);
 
         // `kp status` reflects the new candidate in Health v2's candidates count.
+        Run(workspaceDir, out string statusOut, "status", "--workspace", workspaceDir);
+        Assert.Contains("candidates: 1", statusOut);
+    }
+
+    [Fact]
+    public void CandidatesInferHeaderCitationEndToEndCreatesACandidateCorrespondenceViaCli()
+    {
+        using var dir = new TempDirectory();
+        string workspaceDir = InitWorkspace(dir);
+
+        // Source: a rust dump with one root-module entity for the cited file.
+        var dump = new ProviderDump("rust-map-dump@0.2.0", "krate", [
+            new DumpEntity("module", "bocpd", "ftui_runtime::bocpd", "crates/ftui-runtime/src/bocpd.rs", 1, 40,
+                new string('a', 64), null),
+        ]);
+        string dumpPath = dir.Combine("dump.json");
+        File.WriteAllText(dumpPath, JsonSerializer.Serialize(dump));
+
+        string sourceRoot = dir.Combine("src-root");
+        Directory.CreateDirectory(sourceRoot);
+        Run(workspaceDir, out _, "pin", "--workspace", workspaceDir, "--side", "source", "--root", sourceRoot, "--label", "d1");
+        Run(workspaceDir, out _, "map", "--workspace", workspaceDir, "--side", "source", "--label", "d1", "--dump", dumpPath);
+
+        // Target: a real C# file with a top-of-file "Port of <mount-prefixed path>" citation.
+        string targetRoot = dir.Combine("tgt-root");
+        CSharpFixture.WriteSource(targetRoot, "Bocpd.cs", """
+            // SPDX-License-Identifier: Apache-2.0
+            // Port of .external/frankentui/crates/ftui-runtime/src/bocpd.rs
+
+            namespace FrankenTui.Runtime
+            {
+                public sealed class BocpdConfig
+                {
+                    public double MuSteadyMs = 200.0;
+                }
+            }
+            """);
+        Run(workspaceDir, out _, "pin", "--workspace", workspaceDir, "--side", "target", "--root", targetRoot, "--label", "base");
+        Run(workspaceDir, out _, "map", "--workspace", workspaceDir, "--side", "target", "--label", "base");
+
+        Run(workspaceDir, out string inferOut, "candidates", "infer", "--workspace", workspaceDir, "--heuristic", "header-citation");
+        Assert.Contains("scanned 1 file(s)", inferOut);
+        Assert.Contains("1 citation(s) found", inferOut);
+        Assert.Contains("1 matched", inferOut);
+        Assert.Contains("1 candidate(s) created", inferOut);
+        Assert.Contains("0 unmatched cited path(s)", inferOut);
+
+        var candidate = Assert.Single(CorrespondencesYaml.Read(workspaceDir), c => c.Id.StartsWith("cand-hc-", StringComparison.Ordinal));
+        Assert.Equal("candidate", candidate.Provenance);
+        Assert.Equal("maps-to", candidate.Type);
+        Assert.Equal("ftui_runtime::bocpd", candidate.Source!.SymbolPath);
+        Assert.Equal("FrankenTui.Runtime.BocpdConfig", candidate.Target!.SymbolPath);
+        Assert.Equal("inferred:header-citation \"// Port of .external/frankentui/crates/ftui-runtime/src/bocpd.rs\"", candidate.Note);
+
         Run(workspaceDir, out string statusOut, "status", "--workspace", workspaceDir);
         Assert.Contains("candidates: 1", statusOut);
     }

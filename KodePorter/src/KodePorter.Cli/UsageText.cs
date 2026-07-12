@@ -14,9 +14,9 @@ internal static class UsageText
           kp corr add    --workspace <dir> --type <t> --unit <id> [--source <sp>] [--target <sp>]
                          [--criterion <c>] [--divergence-kind <k>] [--note <s>] [--id <s>]
                          [--provenance candidate|asserted]
-          kp candidates infer --workspace <dir> [--heuristic name-norm]
+          kp candidates infer --workspace <dir> [--heuristic name-norm|header-citation]
           kp claim add   --workspace <dir> --unit <id> --id <s> --predicate kp.behavior --value <s> [--anchors <sp,sp>]
-          kp decide  --workspace <dir> --subject <claim subject> --verdict accept|reject --reason <s>
+          kp decide  --workspace <dir> --subject <claim subject> --verdict accept|reject --reason <s> [--actor <s>]
           kp verify run  --workspace <dir> --unit <id> --cases <p> --source-cmd <s> --target-cmd <s>
                          [--independence independently-derived|implementation-coupled|unknown]
           kp advance --workspace <dir> --side source|target --root <p> --label <s> [--dump <json>]

@@ -383,6 +383,11 @@ public static class KpCliApp
         string subject = a.Require("subject");
         string verdictRaw = a.Require("verdict");
         string reason = a.Require("reason");
+        // CONTRACT.md §5/§9: the human default actor is "govert"; an explicit --actor lets a
+        // policy actor (`policy:<name>@<version>`) accept on the record through the same command
+        // rather than only ever via the autoAccept path — wired straight through to
+        // GneissBinding.HumanDecide's own `actor` parameter (default unchanged).
+        string actor = a.OptionalOr("actor", "govert");
 
         var verdict = verdictRaw switch
         {
@@ -418,8 +423,8 @@ public static class KpCliApp
         if (claimAid is null)
             throw new CliDomainException($"No claim found for subject '{subject}'.");
 
-        binding.HumanDecide(claimAid, verdict, reason);
-        stdout.WriteLine($"{(verdict == KpVerdict.Accept ? "Accepted" : "Rejected")} claim {ShortHash(claimAid)} for subject '{subject}'.");
+        binding.HumanDecide(claimAid, verdict, reason, actor);
+        stdout.WriteLine($"{(verdict == KpVerdict.Accept ? "Accepted" : "Rejected")} claim {ShortHash(claimAid)} for subject '{subject}' (actor '{actor}').");
     }
 
     // ---- verify run -----------------------------------------------------------------------------
@@ -591,6 +596,17 @@ public static class KpCliApp
         string heuristic = a.OptionalOr("heuristic", "name-norm");
 
         using var workspace = KpWorkspace.Open(workspaceDir);
+
+        if (heuristic == "header-citation")
+        {
+            var hcResult = CandidateInferenceService.InferHeaderCitation(workspaceDir, workspace.Map);
+            stdout.WriteLine($"Header-citation: scanned {hcResult.FilesScanned} file(s), {hcResult.CitationsFound} citation(s) found, " +
+                $"{hcResult.Matched} matched, {hcResult.Created} candidate(s) created, {hcResult.UnmatchedCitedPaths.Count} unmatched cited path(s).");
+            foreach (var unmatchedPath in hcResult.UnmatchedCitedPaths.Take(3))
+                stdout.WriteLine($"  unmatched: {unmatchedPath}");
+            return;
+        }
+
         var result = CandidateInferenceService.Infer(workspaceDir, workspace.Map, heuristic);
 
         stdout.WriteLine($"Candidates: created {result.Created}, skipped {result.Skipped}, ambiguous {result.Ambiguous.Count}.");

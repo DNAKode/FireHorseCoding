@@ -168,6 +168,53 @@ $showcaseDir = Join-Path $root 'showcase\m2'
 New-Item -ItemType Directory -Force -Path $showcaseDir | Out-Null
 Copy-Item $atlasOut (Join-Path $showcaseDir 'frankentui-atlas-probe.html') -Force
 
+# ---- 8. Provenance freshness (report-only; never fails the probe) -----------------------------
+# Compares FrankenTui.Net's own PROVENANCE.md "Bootstrap reference commit" pin against the HEAD
+# actually checked out under .external/frankentui (K-D3 map-vs-testimony drift check, PROBE-REPORT
+# .md §7 open finding #4). Self-contained and best-effort by design: an unparsed PROVENANCE.md, a
+# non-git .external/frankentui, or any git failure is logged as SKIPPED, never thrown — this step
+# must never be the reason the probe as a whole fails.
+Write-Log "`n== Provenance freshness =="
+try {
+    $recordedPin = $null
+    $provenanceMdPath = Join-Path $ftui 'PROVENANCE.md'
+    if (Test-Path $provenanceMdPath) {
+        $bootstrapLine2 = Select-String -Path $provenanceMdPath -Pattern 'Bootstrap reference commit' | Select-Object -First 1
+        if ($bootstrapLine2) {
+            $pinMatch = [regex]::Match($bootstrapLine2.Line, '`([0-9a-fA-F]{7,40})`')
+            if ($pinMatch.Success) { $recordedPin = $pinMatch.Groups[1].Value }
+        }
+    }
+
+    $externalGitDir = Join-Path $ftuiExternal '.git'
+    $externalIsGitRepo = Test-Path $externalGitDir -PathType Container
+
+    if (-not $recordedPin) {
+        Write-Log "Provenance freshness: SKIPPED (no parseable 'Bootstrap reference commit' pin in $provenanceMdPath)"
+    }
+    elseif (-not $externalIsGitRepo) {
+        Write-Log "Provenance freshness: SKIPPED ($ftuiExternal is not a git repo)"
+    }
+    else {
+        $actualHead = (git -C $ftuiExternal rev-parse HEAD 2>$null)
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($actualHead)) {
+            Write-Log "Provenance freshness: SKIPPED (git -C $ftuiExternal rev-parse HEAD failed)"
+        }
+        else {
+            $actualHead = $actualHead.Trim()
+            if ($actualHead -eq $recordedPin -or $actualHead.StartsWith($recordedPin)) {
+                Write-Log "Provenance freshness: MATCH (recorded=$recordedPin actual=$actualHead)"
+            }
+            else {
+                Write-Log "Provenance freshness: STALE (recorded=$recordedPin actual=$actualHead)"
+            }
+        }
+    }
+}
+catch {
+    Write-Log "Provenance freshness: SKIPPED (error: $($_.Exception.Message))"
+}
+
 Write-Host ''
 Write-Host "Probe complete. Artifacts in $out (workspace + log under $wsDir)."
 Write-Host "Write flagships/frankentui/PROBE-REPORT.md by hand from $log and the workspace outputs."

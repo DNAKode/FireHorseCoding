@@ -48,12 +48,12 @@ public sealed class RustSynProvider
         for (int i = 0; i < dump.Entities.Count; i++)
             ValidateEntity(dump.Entities[i], i, dumpJsonPath);
 
-        var deduplicated = EntityResolution.SortAndDeduplicate(dump.Entities);
+        var deduplicated = EntityResolution.SortAndDeduplicate(dump.Entities, out int droppedDuplicateCount);
         var entities = EntityResolution.ToEntities(deduplicated, basis.Side, basis.Id);
 
         store.InsertEntities(basis.Id, entities);
 
-        return new ImportResult(entities.Count, ErrorDiagnosticCount: 0);
+        return new ImportResult(entities.Count, ErrorDiagnosticCount: 0, DroppedDuplicateCount: droppedDuplicateCount);
     }
 
     private static readonly string[] ValidResolutions = ["clean", "degraded", "gap"];

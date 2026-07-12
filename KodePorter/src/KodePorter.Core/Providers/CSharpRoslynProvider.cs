@@ -8,11 +8,16 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace KodePorter.Core.Providers;
 
 /// <summary>
-/// In-proc C# provider (CONTRACT.md §3). Globs **/*.cs under a root (excluding bin/obj), parses
-/// with `CSharpParseOptions.Default` at the latest language version, builds one
-/// `CSharpCompilation` named "KpImport" referencing the trusted platform assemblies, and walks
-/// declaration syntax for namespace / class / record / struct / enum / enummember / method /
-/// property / field entities.
+/// In-proc C# provider (CONTRACT.md §3). When the import root contains one or more `.csproj`
+/// files, builds one `CSharpCompilation` per project (in `&lt;ProjectReference&gt;` topological
+/// order — see <see cref="CSharpProjectDiscovery"/> — referencing the trusted platform
+/// assemblies plus each already-built dependency compilation) so resolution/degraded grading is
+/// scoped per project rather than treating a whole multi-project tree as one flat compilation.
+/// Falls back to the previous behavior — one flat `CSharpCompilation` named "KpImport" over
+/// every `**/*.cs` file under the root (excluding bin/obj) — when no `.csproj` exists. Either
+/// way, source is parsed with `CSharpParseOptions.Default` at the latest language version and
+/// walked for namespace / class / record / struct / enum / enummember / method / property /
+/// field entities; entity identity (kind + symbolPath) is unaffected by which path ran.
 /// </summary>
 public sealed class CSharpRoslynProvider
 {
@@ -31,34 +36,139 @@ public sealed class CSharpRoslynProvider
         ArgumentNullException.ThrowIfNull(basis);
 
         string root = Path.GetFullPath(basis.Root);
+        var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Latest);
+        var trustedPlatformReferences = LoadTrustedPlatformAssemblyReferences();
+
+        var projects = CSharpProjectDiscovery.DiscoverProjectsInDependencyOrder(root);
+        var candidates = new List<DumpEntity>();
+        int errorDiagnosticCount = projects.Count == 0
+            ? ImportFlat(root, parseOptions, trustedPlatformReferences, candidates)
+            : ImportPerProject(root, projects, parseOptions, trustedPlatformReferences, candidates);
+
+        var deduplicated = EntityResolution.SortAndDeduplicate(candidates);
+        var entities = EntityResolution.ToEntities(deduplicated, basis.Side, basis.Id);
+
+        store.InsertEntities(basis.Id, entities);
+
+        return new ImportResult(entities.Count, errorDiagnosticCount);
+    }
+
+    /// <summary>No `.csproj` under the root: one flat `CSharpCompilation` ("KpImport") over
+    /// every `**/*.cs` file under the root (excluding bin/obj) — the original, pre-per-project
+    /// behavior, kept so fixtures without a project file keep working unchanged.</summary>
+    private static int ImportFlat(
+        string root,
+        CSharpParseOptions parseOptions,
+        List<MetadataReference> trustedPlatformReferences,
+        List<DumpEntity> candidates)
+    {
         var files = TreeHasher.EnumerateCSharpFiles(root)
             .OrderBy(f => f, StringComparer.Ordinal)
             .ToList();
 
-        var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Latest);
         var trees = files
             .Select(f => (SyntaxTree)CSharpSyntaxTree.ParseText(File.ReadAllText(f), parseOptions, path: f))
             .ToList();
 
-        var references = LoadTrustedPlatformAssemblyReferences();
         var compilation = CSharpCompilation.Create(
             "KpImport",
             trees,
-            references,
+            trustedPlatformReferences,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        // Compilation diagnostics are counted, never fatal (map-first principle, CONTRACT.md §3).
+        return WalkCompilation(compilation, trees, root, candidates);
+    }
+
+    /// <summary>
+    /// One or more `.csproj` under the root: builds one `CSharpCompilation` per project, in
+    /// `&lt;ProjectReference&gt;` topological order, referencing the trusted platform assemblies
+    /// plus a `CompilationReference` to each already-built dependency project (NuGet
+    /// `&lt;PackageReference&gt;`s stay unresolved either way — accepted, see
+    /// <see cref="CSharpProjectDiscovery"/>'s doc comment). Any `.cs` file under the root not
+    /// owned by any discovered project's compile items (e.g. a stray script, or a project layout
+    /// this discovery doesn't understand) is compiled together in one more flat, trusted-platform
+    /// -only "leftover" compilation, so no file is silently dropped from the map.
+    /// </summary>
+    private static int ImportPerProject(
+        string root,
+        IReadOnlyList<CSharpProjectFile> projects,
+        CSharpParseOptions parseOptions,
+        List<MetadataReference> trustedPlatformReferences,
+        List<DumpEntity> candidates)
+    {
+        int errorDiagnosticCount = 0;
+        var compilationsByProjectPath = new Dictionary<string, CSharpCompilation>(StringComparer.OrdinalIgnoreCase);
+        var ownedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var project in projects)
+        {
+            var files = project.CompileFiles.OrderBy(f => f, StringComparer.Ordinal).ToList();
+            foreach (var f in files)
+                ownedFiles.Add(f);
+
+            var trees = files
+                .Select(f => (SyntaxTree)CSharpSyntaxTree.ParseText(File.ReadAllText(f), parseOptions, path: f))
+                .ToList();
+
+            var references = new List<MetadataReference>(trustedPlatformReferences);
+            foreach (var refPath in project.ProjectReferencePaths)
+            {
+                // A ProjectReference outside the discovered set (e.g. pointing outside the
+                // import root, or a project this discovery couldn't parse) stays unresolved —
+                // same acceptance as an unresolved NuGet package reference.
+                if (compilationsByProjectPath.TryGetValue(refPath, out var dependencyCompilation))
+                    references.Add(dependencyCompilation.ToMetadataReference());
+            }
+
+            var compilation = CSharpCompilation.Create(
+                project.Name,
+                trees,
+                references,
+                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            compilationsByProjectPath[project.Path] = compilation;
+
+            errorDiagnosticCount += WalkCompilation(compilation, trees, root, candidates);
+        }
+
+        var looseFiles = TreeHasher.EnumerateCSharpFiles(root)
+            .Where(f => !ownedFiles.Contains(f))
+            .OrderBy(f => f, StringComparer.Ordinal)
+            .ToList();
+        if (looseFiles.Count > 0)
+        {
+            var looseTrees = looseFiles
+                .Select(f => (SyntaxTree)CSharpSyntaxTree.ParseText(File.ReadAllText(f), parseOptions, path: f))
+                .ToList();
+            var looseCompilation = CSharpCompilation.Create(
+                "KpImportLoose",
+                looseTrees,
+                trustedPlatformReferences,
+                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            errorDiagnosticCount += WalkCompilation(looseCompilation, looseTrees, root, candidates);
+        }
+
+        return errorDiagnosticCount;
+    }
+
+    /// <summary>Runs diagnostics on <paramref name="compilation"/> and walks every tree in it,
+    /// appending entities to <paramref name="candidates"/>. Returns the Error-severity diagnostic
+    /// count. Diagnostics are counted, never fatal (map-first principle, CONTRACT.md §3).
+    /// CONTRACT-M15.md §1.1: entities whose file produced >=1 Error-severity diagnostic ->
+    /// resolution "degraded", scoped per-tree (per-file) within this compilation.</summary>
+    private static int WalkCompilation(
+        CSharpCompilation compilation,
+        List<SyntaxTree> trees,
+        string root,
+        List<DumpEntity> candidates)
+    {
         var diagnostics = compilation.GetDiagnostics();
         int errorDiagnosticCount = diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error);
 
-        // CONTRACT-M15.md §1.1: entities whose file produced >=1 Error-severity diagnostic ->
-        // resolution "degraded". Scoped per-tree (per-file), not import-wide.
         var treesWithErrors = diagnostics
             .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree is not null)
             .Select(d => d.Location.SourceTree!)
             .ToHashSet();
 
-        var candidates = new List<DumpEntity>();
         foreach (var tree in trees)
         {
             var semanticModel = compilation.GetSemanticModel(tree);
@@ -67,12 +177,7 @@ public sealed class CSharpRoslynProvider
             WalkTree(tree.GetRoot(), tree, semanticModel, relativeFile, resolution, candidates);
         }
 
-        var deduplicated = EntityResolution.SortAndDeduplicate(candidates);
-        var entities = EntityResolution.ToEntities(deduplicated, basis.Side, basis.Id);
-
-        store.InsertEntities(basis.Id, entities);
-
-        return new ImportResult(entities.Count, errorDiagnosticCount);
+        return errorDiagnosticCount;
     }
 
     private static List<MetadataReference> LoadTrustedPlatformAssemblyReferences()
