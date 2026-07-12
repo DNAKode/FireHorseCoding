@@ -241,14 +241,52 @@ public static class KpCliApp
         return result;
     }
 
+    // ---- corr promote ---------------------------------------------------------------------------
+
+    /// <summary>
+    /// Promotes a confirmed `candidate` correspondence to `asserted` (the learning loop's
+    /// worker-confirmed + checker-upheld path): flips provenance in the yaml and proposes the
+    /// kp.correspondence claim with the confirmation evidence in its reason, ready for
+    /// `kp decide --actor policy:...` acceptance.
+    /// </summary>
+    private static void RunCorrPromote(ArgReader a, TextWriter stdout)
+    {
+        string workspaceDir = a.Require("workspace");
+        string id = a.Require("id");
+        string evidenceNote = a.Require("evidence-note");
+
+        using var workspace = KpWorkspace.Open(workspaceDir);
+        using var binding = GneissBinding.Initialize(workspaceDir);
+
+        var correspondences = CorrespondencesYaml.Read(workspaceDir);
+        var corr = correspondences.FirstOrDefault(c => c.Id == id)
+            ?? throw new CliDomainException($"No correspondence '{id}'.");
+        if (corr.Provenance == "asserted")
+            throw new CliDomainException($"Correspondence '{id}' is already asserted.");
+
+        var value = new CorrespondenceClaimValue(
+            corr.Type,
+            corr.Source is null ? null : new AnchorRefValue(corr.Source.SymbolPath, corr.Source.BasisLabel, corr.Source.ContentHash),
+            corr.Target is null ? null : new AnchorRefValue(corr.Target.SymbolPath, corr.Target.BasisLabel, corr.Target.ContentHash),
+            corr.Unit, corr.Criterion);
+        string aid = binding.ProposeCorrespondenceClaim(id, value, evidenceAids: null,
+            actor: "kodeporter", reason: $"kp corr promote: {evidenceNote}");
+
+        CorrespondencesYaml.Write(workspaceDir,
+            correspondences.Select(c => c.Id == id ? c with { Provenance = "asserted", ClaimAid = aid } : c).ToList());
+
+        stdout.WriteLine($"Promoted '{id}' to asserted; proposed kp.correspondence claim ({ShortHash(aid)}).");
+    }
+
     // ---- corr add -----------------------------------------------------------------------------
 
     private static void RunCorr(IReadOnlyList<string> args, TextWriter stdout)
     {
         string sub = RequireSubVerb(args, "corr");
         var a = new ArgReader(args.Skip(1).ToList());
+        if (sub == "promote") { RunCorrPromote(a, stdout); return; }
         if (sub != "add")
-            throw new CliUsageException($"Unknown 'corr' sub-command '{sub}' (expected 'add').");
+            throw new CliUsageException($"Unknown 'corr' sub-command '{sub}' (expected 'add' or 'promote').");
 
         string workspaceDir = a.Require("workspace");
         string type = a.Require("type");

@@ -218,14 +218,22 @@ public static class CandidateInferenceService
         var sourceEntities = store.GetEntities(sourceBasis.Id);
         var targetEntities = store.GetEntities(targetBasis.Id);
 
-        // One root module entity per source file: kind "module" with no parent (RustSynProvider
-        // emits exactly this shape for a crate-root/file-root module — see
-        // EntityResolution/RustSynProvider and fixtures/slice-zero/maps/rust-dump-base.json).
+        // Anchor entity per source file: prefer the file's module entity (crate roots are
+        // parentless; out-of-line submodule files — walked since rust-map-dump v0.4.0 — carry a
+        // module entity WITH a parent, so the anchor rule must not require ParentId null; found
+        // during the first full-scale citation run, 2026-07-12: 185/187 citations of submodule
+        // files went unmatched under the old parentless-root rule). Prefer the shallowest
+        // symbolPath (the file's own module over any inline sub-modules), deterministic tie-break.
         var rootModuleByFile = sourceEntities
-            .Where(e => e.Kind == "module" && e.ParentId is null)
+            .Where(e => e.Kind == "module")
             .GroupBy(e => e.File, StringComparer.Ordinal)
             .OrderBy(g => g.Key, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.OrderBy(e => e.SymbolPath, StringComparer.Ordinal).First(), StringComparer.Ordinal);
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(e => e.SymbolPath.Count(ch => ch == ':'))
+                      .ThenBy(e => e.SymbolPath, StringComparer.Ordinal)
+                      .First(),
+                StringComparer.Ordinal);
 
         var targetEntitiesById = targetEntities.ToDictionary(e => e.Id, e => e);
 
