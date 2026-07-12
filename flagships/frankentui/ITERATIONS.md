@@ -38,6 +38,12 @@ never estimated.*
   reading two real source files dominates. Still ≪ an exploration session, and haiku-priced.
 - **Map after it1:** corresponded 20 · candidates 1,732.
 - **Gallery:** `gallery/it1-atlas.html` · golden ledger `gallery/it1-ledger-export.jsonl`.
-- **Next-iteration directions:** scale this triple to the remaining 99 hc-candidates (its
-  numbers earn it); route the two upheld refutations to divergence classification; it2 =
-  absence classification per BOOTSTRAP-PLAN.
+- **Evidence (extracted to the committed record):** `evidence/it1-worker-checker-evidence.jsonl`
+  (all 24 worker+checker structured returns) and `evidence/it1-candidate-queue.jsonl` (the full
+  110-row header-citation queue with resolved file paths — 10 accepted, 2 held, 98 pending; the
+  executable A1 work-list). See `evidence/README.md`, including the two divergence leads spelled
+  out. These survive workspace garbage-collection; the raw workspace is otherwise gitignored.
+- **Next-iteration directions:** scale this triple to the remaining 98 hc-candidates (its
+  numbers earn it — WORKPLAN §3 A1); route the two upheld refutations to divergence classification
+  (A2); it2 = absence classification per BOOTSTRAP-PLAN (A3). The full phase brief is
+  [WORKPLAN.md](../../WORKPLAN.md).

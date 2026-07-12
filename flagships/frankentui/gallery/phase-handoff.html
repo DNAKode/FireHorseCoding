@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FrankenTui Porting Program — Phase Handoff</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --panel:#ffffff; --ink:#14181f; --muted:#5b6472; --line:#e4e8ee;
+    --accent:#2f6bff; --good:#1f9d5b; --warn:#c7761b; --bad:#c23b4b; --hold:#8a5cf6;
+    --shadow:0 1px 2px rgba(20,24,31,.06),0 8px 24px rgba(20,24,31,.05);
+    --mono:"SF Mono",ui-monospace,"Cascadia Code",Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#0d1017;--panel:#151a23;--ink:#e8ecf3;--muted:#93a0b4;--line:#252d3a;
+      --accent:#5b8cff;--good:#3ec77e;--warn:#e0954a;--bad:#e56377;--hold:#a684f5;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);}
+  }
+  :root[data-theme="dark"]{--bg:#0d1017;--panel:#151a23;--ink:#e8ecf3;--muted:#93a0b4;--line:#252d3a;
+    --accent:#5b8cff;--good:#3ec77e;--warn:#e0954a;--bad:#e56377;--hold:#a684f5;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);}
+  :root[data-theme="light"]{--bg:#f7f8fa;--panel:#ffffff;--ink:#14181f;--muted:#5b6472;--line:#e4e8ee;
+    --accent:#2f6bff;--good:#1f9d5b;--warn:#c7761b;--bad:#c23b4b;--hold:#8a5cf6;
+    --shadow:0 1px 2px rgba(20,24,31,.06),0 8px 24px rgba(20,24,31,.05);}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 22px 72px}
+  header.hero{padding:14px 0 8px}
+  .kicker{font:600 12px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(26px,4.6vw,40px);line-height:1.08;margin:8px 0 6px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:16px;max-width:64ch}
+  .lede{margin:18px 0 2px;font-size:18px;max-width:70ch}
+  .lede b{color:var(--good)}
+  section{margin-top:34px}
+  h2{font-size:13px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 14px;font-weight:600}
+  .grid{display:grid;gap:14px}
+  .g4{grid-template-columns:repeat(4,1fr)} .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:820px){.g4{grid-template-columns:repeat(2,1fr)}.g3,.g2{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;
+    box-shadow:var(--shadow)}
+  .stat .n{font:700 30px/1 var(--sans);letter-spacing:-.02em;display:block}
+  .stat .l{color:var(--muted);font-size:12.5px;margin-top:6px}
+  .stat .foot{font-size:11.5px;color:var(--muted);margin-top:8px;font-family:var(--mono)}
+  .pill{display:inline-block;font:600 11px/1 var(--mono);padding:4px 8px;border-radius:999px;
+    border:1px solid var(--line)}
+  .pill.good{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent)}
+  .pill.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
+  .pill.hold{color:var(--hold);border-color:color-mix(in srgb,var(--hold) 40%,transparent)}
+  .pill.mut{color:var(--muted)}
+  /* timeline */
+  .rail{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;position:relative}
+  @media(max-width:820px){.rail{grid-template-columns:1fr 1fr}}
+  .node{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px;
+    box-shadow:var(--shadow);position:relative}
+  .node .t{font:700 13px var(--mono);letter-spacing:.02em}
+  .node .d{font-size:12px;color:var(--muted);margin-top:3px}
+  .node.done .t{color:var(--good)} .node.next .t{color:var(--accent)} .node.gate .t{color:var(--warn)}
+  .node .tag{position:absolute;top:10px;right:11px;font:600 9.5px var(--mono);letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted)}
+  /* funnel / bar */
+  .bar{height:34px;border-radius:8px;overflow:hidden;display:flex;border:1px solid var(--line)}
+  .bar>span{display:flex;align-items:center;justify-content:center;font:600 11.5px var(--mono);
+    color:#fff;white-space:nowrap;overflow:hidden}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:12px;color:var(--muted)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font:600 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  td code{font-family:var(--mono);font-size:12px}
+  .lead{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--hold);
+    border-radius:10px;padding:14px 16px;box-shadow:var(--shadow)}
+  .lead h3{margin:0 0 4px;font-size:15px}
+  .lead .path{font:12px var(--mono);color:var(--muted)}
+  .lead ul{margin:9px 0 0;padding-left:18px} .lead li{margin:3px 0;font-size:13px}
+  .track{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 17px;
+    box-shadow:var(--shadow)}
+  .track h3{margin:0 0 3px;font-size:15px;display:flex;align-items:center;gap:9px}
+  .track h3 .k{font:700 12px var(--mono);color:var(--accent)}
+  .track ol{margin:10px 0 0;padding-left:20px} .track li{margin:6px 0;font-size:13.5px}
+  .track li b{font-family:var(--mono);font-weight:600;font-size:12.5px}
+  .miss{display:flex;gap:12px;align-items:flex-start;font-size:13.5px}
+  .miss .dot{flex:none;width:9px;height:9px;border-radius:50%;margin-top:6px;background:var(--warn)}
+  .foothref{color:var(--accent);text-decoration:none;font-family:var(--mono);font-size:12.5px}
+  .foothref:hover{text-decoration:underline}
+  footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+  .toggle{position:fixed;top:14px;right:14px;background:var(--panel);border:1px solid var(--line);
+    color:var(--muted);border-radius:9px;padding:7px 11px;font:600 11px var(--mono);cursor:pointer;
+    box-shadow:var(--shadow)}
+  .note{color:var(--muted);font-size:12.5px;margin-top:9px}
+  .em{color:var(--ink)}
+</style>
+</head>
+<body>
+<button class="toggle" id="tg" aria-label="Toggle theme">◐ theme</button>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="kicker">FrankenTui flagship · KodePorter × Gneiss · 2026-07-12</div>
+    <h1>Phase handoff: the learning loop is alive and measured</h1>
+    <p class="sub">Rust → C# port of FrankenTui, tracked on the KodePorter map and recorded in Gneiss.
+      This page is the receipt for the phase that just closed and the brief for the one ahead — which runs
+      without Fable, executed by lighter orchestrators driving haiku-class workers.</p>
+    <p class="lede">Iteration&nbsp;1 drained a batch of twelve citation candidates through a cheap worker
+      and an independent cheap checker: <b>10 accepted</b>, <b>2 substantiated divergence leads</b>,
+      <b>0 fabricated evidence</b>, <b>0 human minutes</b> — in 113 seconds. The method now has numbers,
+      not promises.</p>
+  </header>
+
+  <!-- MEASURED IT1 -->
+  <section>
+    <h2>Iteration&nbsp;1 — measured, not estimated</h2>
+    <div class="grid g4">
+      <div class="card stat"><span class="n" style="color:var(--good)">10 / 12</span>
+        <span class="l">accepted (worker-confirm + checker-uphold), policy-decided</span>
+        <span class="foot">83% acceptance</span></div>
+      <div class="card stat"><span class="n">0</span>
+        <span class="l">human minutes — every decision by <code>policy:kp-frankentui@1</code></span>
+        <span class="foot">0 fabrication · 0 overturns</span></div>
+      <div class="card stat"><span class="n">~102.5k</span>
+        <span class="l">haiku tokens per accepted item (worker + independent checker)</span>
+        <span class="foot" style="color:var(--warn)">~10× the guidance forecast — recorded honestly</span></div>
+      <div class="card stat"><span class="n">113 s</span>
+        <span class="l">wall time for the full batch, pipelined</span>
+        <span class="foot">1,025,327 tokens total</span></div>
+    </div>
+    <p class="note">The headline metric is <span class="em">tokens per accepted, independently-checked item</span>.
+      it1 sets the baseline (102.5k); the reason the forecast was low is prosaic and now on the record —
+      reading two real source files dominates the cost. Still far below an exploration session, and haiku-priced.</p>
+  </section>
+
+  <!-- LEARNING CURVE -->
+  <section>
+    <h2>The trajectory — where the loop has been and what it earned next</h2>
+    <div class="rail">
+      <div class="node done"><span class="tag">done</span><div class="t">it0</div>
+        <div class="d">Make the map honest. Module-include walk: 273→768 files, 73k entities, 0 gaps.
+          Citations matched 2→157. 109 candidates.</div></div>
+      <div class="node done"><span class="tag">done</span><div class="t">it1</div>
+        <div class="d">Confirm citations. 12 items, 10 accepted, 2 leads. Corresponded 0→20.
+          The triple earned a bigger batch.</div></div>
+      <div class="node next"><span class="tag">next</span><div class="t">A1 · it1b</div>
+        <div class="d">Drain the 98 pending candidates with the same proven triple. Turnkey queue
+          already committed.</div></div>
+      <div class="node next"><span class="tag">then</span><div class="t">A2 · divergence</div>
+        <div class="d">Classify the 2 upheld refutations (sonnet, 100% audited). New template's first run.</div></div>
+      <div class="node gate"><span class="tag">gated</span><div class="t">A3 · it2 → A4</div>
+        <div class="d">Absence pilot (≤50 modules), then baseline reality on a clone. Synthesis (it4)
+          is steward-gated.</div></div>
+    </div>
+  </section>
+
+  <!-- MAP HEALTH -->
+  <section>
+    <h2>Map health at handoff — 89,840 entities mapped</h2>
+    <div class="grid g2">
+      <div class="card">
+        <div style="font:600 12px var(--mono);color:var(--muted);margin-bottom:10px">SOURCE COVERAGE (non-test source entities)</div>
+        <div class="bar">
+          <span style="width:8%;background:var(--good)" title="corresponded 20">20</span>
+          <span style="width:34%;background:var(--accent)" title="candidates 1,732">cand 1,732</span>
+          <span style="width:58%;background:var(--warn)" title="absence-unknown 17,366">absence-unknown 17,366</span>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--good)"></i>corresponded 20</span>
+          <span><i style="background:var(--accent)"></i>candidates 1,732</span>
+          <span><i style="background:var(--warn)"></i>absence-unknown 17,366</span>
+        </div>
+        <p class="note">Corresponded climbed 0→20 in it1. The absence-unknown pile is A3's target — the
+          highest-count, lowest-judgment queue, prime cheap-agent territory. Bars are proportional within
+          the classified source population.</p>
+      </div>
+      <div class="card">
+        <div style="font:600 12px var(--mono);color:var(--muted);margin-bottom:10px">THE CITATION QUEUE — the earned A1 work</div>
+        <svg viewBox="0 0 320 150" width="100%" height="150" role="img" aria-label="Candidate funnel">
+          <rect x="0" y="8" width="320" height="26" rx="5" fill="var(--accent)" opacity=".22"/>
+          <text x="10" y="25" font-family="var(--mono)" font-size="12" fill="var(--ink)">110 header-citation candidates</text>
+          <rect x="0" y="42" width="128" height="26" rx="5" fill="var(--accent)" opacity=".5"/>
+          <text x="10" y="59" font-family="var(--mono)" font-size="12" fill="var(--ink)">12 processed in it1</text>
+          <rect x="0" y="76" width="70" height="26" rx="5" fill="var(--good)"/>
+          <text x="10" y="93" font-family="var(--mono)" font-size="12" fill="#fff">10 accepted</text>
+          <rect x="74" y="76" width="46" height="26" rx="5" fill="var(--hold)"/>
+          <text x="82" y="93" font-family="var(--mono)" font-size="11" fill="#fff">2 leads</text>
+          <rect x="0" y="110" width="286" height="30" rx="5" fill="var(--warn)" opacity=".85"/>
+          <text x="12" y="129" font-family="var(--mono)" font-size="13" fill="#fff" font-weight="700">98 pending → A1 (committed, turnkey)</text>
+        </svg>
+        <p class="note">Every pending row already carries resolved source + target file paths in
+          <code>evidence/it1-candidate-queue.jsonl</code> — the dispatcher loads it and runs, no map rebuild.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TEMPLATES -->
+  <section>
+    <h2>The template registry — the method as versioned, competing artifacts</h2>
+    <div class="card" style="padding:6px 4px">
+    <table>
+      <thead><tr><th>Template</th><th>Queue</th><th>Tier</th><th>Status</th><th>Measured record</th></tr></thead>
+      <tbody>
+        <tr><td><code>confirm-corr@1</code></td><td>candidate-review</td><td>haiku</td>
+          <td><span class="pill good">proven</span></td>
+          <td>it1: 10/12 accepted, 0 fabrication</td></tr>
+        <tr><td><code>check-confirm@1</code></td><td>independent checker</td><td>haiku</td>
+          <td><span class="pill good">proven</span></td>
+          <td>it1: 12 checks, 0 overturns, both refutations substantiated</td></tr>
+        <tr><td><code>classify-absence@1</code></td><td>absence-unknown</td><td>haiku</td>
+          <td><span class="pill mut">drafted</span></td>
+          <td>unproven — first run is a ≤50-item audited pilot</td></tr>
+        <tr><td><code>classify-divergence@1</code></td><td>divergence-leads</td><td>sonnet</td>
+          <td><span class="pill mut">drafted</span></td>
+          <td>unproven — first batch = the 2 it1 leads, 100% audited</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="note">A template is a named, versioned prompt whose method envelope rides every artifact it
+      produces — so “which method improves and which regresses” is a query over the ledger, not an anecdote.
+      Changing a prompt is a version bump and a new file; the old one stays because old iteration records cite it.</p>
+  </section>
+
+  <!-- DIVERGENCE LEADS -->
+  <section>
+    <h2>The two divergence leads — it1's most valuable output</h2>
+    <p class="sub" style="margin-bottom:14px">Files that cite their Rust source in a header but do
+      <em>not</em> substantively port it. A worker refuted each; an independent checker upheld the refutation
+      against the same two files. No grep would have found these — they look ported until you read them.</p>
+    <div class="grid g2">
+      <div class="lead">
+        <h3>alpha_investing → AlphaInvestor <span class="pill hold">simplified reimpl</span></h3>
+        <div class="path">src/FrankenTui.Runtime/AlphaInvesting.cs — 44 lines vs Rust's 562</div>
+        <ul>
+          <li>alpha strategy differs: Rust scales wealth by <code>investment_fraction</code> (0.1); C# uses fixed <code>DefaultAlpha</code> (0.05) clamped.</li>
+          <li>FDR fallbacks (<code>bonferroni_test</code>, <code>benjamini_hochberg</code>) omitted entirely.</li>
+          <li><code>RewardFactor</code> 1.0 vs 0.5 — doubles wealth replenishment; no p-value clamping; no tests.</li>
+        </ul>
+      </div>
+      <div class="lead">
+        <h3>schedule_trace → ScheduleTrace <span class="pill hold">incompatible port</span></h3>
+        <div class="path">src/FrankenTui.Runtime/ScheduleTrace.cs</div>
+        <ul>
+          <li>checksum incompatible: Rust byte-discriminants + FNV-1a vs C# <code>GetHashCode()</code> — same events, different checksums.</li>
+          <li>convenience API absent: no <code>spawn/start/complete/cancel</code>, only <code>Record()</code>.</li>
+          <li>all sampling/comparison infra dropped (<code>VoiSampler</code>, <code>summary()</code>, <code>IsomorphismProof</code>).</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note">These become the first entries in A2's divergence queue. Whether each is an
+      <em>intentional</em> divergence is A2's call, on the record — these are the leads, not the verdict.</p>
+  </section>
+
+  <!-- PHASE PLAN -->
+  <section>
+    <h2>The phase ahead — three tracks, gated by numbers</h2>
+    <div class="grid g3">
+      <div class="track">
+        <h3><span class="k">A</span> The learning loop</h3>
+        <ol>
+          <li><b>A1 it1b</b> — drain 98 pending candidates, two waves of ~50, gate between.</li>
+          <li><b>A2</b> — classify the 2 divergence leads (sonnet, audited).</li>
+          <li><b>A3 it2</b> — absence pilot: per-module verdicts, ≤50, audited.</li>
+          <li><b>A4 it3</b> — baseline reality on a clone; inherited failures fixed apart.</li>
+          <li><b>A5 it4</b> — first synthesis wave. <span class="pill warn">steward-gated</span></li>
+        </ol>
+      </div>
+      <div class="track">
+        <h3><span class="k">B</span> Engineering from ATTIC</h3>
+        <ol>
+          <li><b>NuGet refs</b> for per-project Roslyn — de-saturate the 96.2% degraded signal.</li>
+          <li><b>Atlas compaction</b> — 31.3 MB → the 15 MB budget.</li>
+          <li><b>Bulk absence verb</b> — unblocks A3 fan-out at 17k scale.</li>
+          <li>impl-block disambiguation; SQLite-open retry; typed <code>kp.iteration</code>.</li>
+        </ol>
+      </div>
+      <div class="track">
+        <h3><span class="k">C</span> Governance &amp; bookkeeping</h3>
+        <ol>
+          <li>Every landing → a governance-ledger record + LENS refresh.</li>
+          <li>Every iteration → an ITERATIONS row (measured, incl. failures) + a gallery frame.</li>
+          <li><b>Collect, don't author</b> the keep-earning memo — produce its economics rows.</li>
+        </ol>
+      </div>
+    </div>
+    <p class="note">Stop rules are explicit: any fabricated evidence halts the triple; acceptance &lt;60% or
+      overturn &gt;25% means the worker template is broken (version-bump, don't grind); cost &gt;2× prior means a
+      dispatcher problem. Template retirements and tier escalations escalate to the steward.</p>
+  </section>
+
+  <!-- HONEST MISSES -->
+  <section>
+    <h2>What isn't fixed — recorded, not hidden</h2>
+    <div class="grid g2">
+      <div class="card">
+        <div class="miss"><span class="dot"></span><div><b>Target resolution 96.2% degraded.</b>
+          Per-project Roslyn without NuGet reference resolution can't discriminate a repo that genuinely
+          doesn't compile in isolation. Track B #1. Until fixed, “degraded” is near-constant and not a useful signal.</div></div>
+        <div class="miss" style="margin-top:12px"><span class="dot"></span><div><b>Full-map Atlas is 31.3 MB</b>
+          against a 15 MB budget — a standing breach. Data-island compaction is Track B #2, promoted before the
+          gallery grows further.</div></div>
+      </div>
+      <div class="card">
+        <div class="miss"><span class="dot"></span><div><b>The name-norm queue (1,632) is not earned.</b>
+          Its structural false-positive mode (generic test-fixture names) is proven; it waits for a pre-filter
+          or a better heuristic — not a wholesale drain.</div></div>
+        <div class="miss" style="margin-top:12px"><span class="dot"></span><div><b>Provenance pin ~2 months stale;
+          131 impl-block identity duplicates.</b> Both surfaced, both queued in ATTIC with triggers. Nothing
+          silently dropped.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div style="margin-bottom:8px"><b class="em">Judge the phase from the record, not a meeting.</b>
+      Everything on this page is drawn from committed artifacts:</div>
+    <a class="foothref" href="../../../WORKPLAN.md">WORKPLAN.md</a> &nbsp;·&nbsp;
+    <a class="foothref" href="../ITERATIONS.md">ITERATIONS.md</a> &nbsp;·&nbsp;
+    <a class="foothref" href="../evidence/README.md">evidence/</a> &nbsp;·&nbsp;
+    <a class="foothref" href="./it1-atlas.html">it1 Atlas</a> &nbsp;·&nbsp;
+    <a class="foothref" href="../../../KodePorter/guidance/templates/README.md">templates/</a> &nbsp;·&nbsp;
+    <a class="foothref" href="../../../governance/LENS.html">governance LENS</a>
+    <div style="margin-top:14px;font-size:12px">The port is the product; the measured method is the compounding asset.
+      This is the last Fable-authored contribution for a while — the loop from here is designed to run cheap.</div>
+  </footer>
+
+</div>
+<script>
+  (function(){
+    var b=document.documentElement, t=document.getElementById('tg');
+    t.addEventListener('click',function(){
+      var cur=b.getAttribute('data-theme');
+      if(!cur){cur=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';}
+      b.setAttribute('data-theme', cur==='dark'?'light':'dark');
+    });
+  })();
+</script>
+</body>
+</html>
