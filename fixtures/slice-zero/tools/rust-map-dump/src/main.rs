@@ -28,27 +28,71 @@
 //! compact) JSON object is printed to stdout, covering every discovered
 //! crate's entities together.
 //!
-//! Module resolution is deliberately simple, not full Cargo-aware crate
-//! graph resolution: within a crate, `src/lib.rs` and `src/main.rs` are
-//! treated as the crate root (named after that crate's own `Cargo.toml`
-//! `[package] name`), each `src/bin/<name>.rs` is treated as its own
-//! crate root named `<name>`, and each *direct child* `tests/<name>.rs` is
-//! treated as its own (test) crate root named `<name>` -- matching what
-//! Cargo itself would compile each of those files as. Any other `.rs`
-//! file (one only reachable via `mod foo;` elsewhere, or nested under a
-//! `tests/<subdir>/`) is skipped -- this fixture's crates never have one,
-//! and teaching this tool full `mod`-path file resolution isn't needed to
-//! satisfy CONTRACT.md.
+//! Module resolution starts the same way, not full Cargo-aware crate graph
+//! resolution: within a crate, `src/lib.rs` and `src/main.rs` are treated
+//! as the crate root (named after that crate's own `Cargo.toml` `[package]
+//! name`), each `src/bin/<name>.rs` is treated as its own crate root named
+//! `<name>`, and each *direct child* `tests/<name>.rs` is treated as its
+//! own (test) crate root -- matching what Cargo itself would compile each
+//! of those files as.
+//!
+//! From each such root, `mod foo;` (out-of-line, no inline `{ ... }` body)
+//! items are now followed (v0.4.0): the target file is resolved per Rust's
+//! own module-file rules, relative to the *declaring file's own module
+//! directory* -- a directory owner (any crate-root file, regardless of its
+//! name, or a `mod.rs` file) owns its own containing directory, while a
+//! plain `<name>.rs` file owns a `<name>/` sibling directory for its own
+//! children. Candidates are tried in a fixed, deterministic order --
+//! `<dir>/<name>.rs` before `<dir>/<name>/mod.rs` -- so if a tree
+//! (incorrectly, or via cfg-gating rustc itself would resolve differently)
+//! ships both, the first one wins rather than being ambiguous. A plain
+//! string-literal `#[path = "..."]` attribute overrides this search
+//! entirely, resolved relative to the *declaring file's own* directory
+//! (not its module directory). The resolved file's items become children
+//! of the declaring `mod` entity with the exact same symbolPath shape an
+//! inline `mod foo { ... }` would have produced, and its `file`/
+//! `contentHash` are the submodule file's own -- so header-citation
+//! matching against a submodule path works identically to a crate-root
+//! path. Recursion is natural: a submodule can itself declare further
+//! out-of-line `mod`s. A `mod foo;` that cannot be resolved (target not
+//! found, or found but unreadable/unparseable) never aborts the dump --
+//! it contributes a single `resolution: "gap"` module entity in the
+//! declaring module's place (CONTRACT-M15 §5's existing gap contract,
+//! extended down to individual `mod` items) and recursion simply stops
+//! there.
+//!
+//! Any `.rs` file that is nested under a `tests/<subdir>/` and not reached
+//! by a `mod` declaration from a `tests/<name>.rs` root is still skipped,
+//! same as before -- Cargo doesn't compile such a file as anything on its
+//! own either.
 //!
 //! `symbolPath`s are already "prefixed with the crate name" (CONTRACT-M15
-//! §5) by construction: a crate root's name IS that crate's own name in
-//! Rust's sense (the package name for `lib.rs`/`main.rs`, the target's own
-//! name for a `bin`/`tests` file -- matching what `rustc --crate-name`
-//! would call it), and every descendant symbolPath is built by appending
-//! onto its root. This is why a single-crate root's output is
-//! byte-identical before and after v1.1's multi-crate discovery was
-//! added: discovering exactly one crate (at the root itself) and walking
-//! it is exactly what v1.0 already did.
+//! §5) by construction: a `lib.rs`/`main.rs`/`bin/<name>.rs` root's name IS
+//! that crate/target's own name in Rust's sense (matching what
+//! `rustc --crate-name` would call it), and every descendant symbolPath is
+//! built by appending onto its root. This is why a single-crate root's
+//! output is byte-identical before and after v1.1's multi-crate discovery
+//! was added: discovering exactly one crate (at the root itself) and
+//! walking it is exactly what v1.0 already did.
+//!
+//! A *direct-child* `tests/<name>.rs`, however, is a special case (v1.2,
+//! identity-collision fix): `rustc --crate-name` really would call it just
+//! `<name>`, with no relationship to its owning package, but two
+//! independently-compiled crates in a multi-crate root can ship a
+//! same-named test file (e.g. two packages each with `tests/smoke.rs`) --
+//! an unqualified `<name>` root symbolPath would then collide under the
+//! schema's (kind, symbolPath) identity (`EntityResolution
+//! .SortAndDeduplicate`), silently dropping one of the two. So a test
+//! root's symbolPath (and name) is instead qualified by its *owning
+//! package*: `<package>#tests/<name>` (root module), with every
+//! descendant built by appending onto that, e.g.
+//! `<package>#tests/<name>::some_fn`. `#` is used as the package/tests
+//! separator (rather than `::`) because it cannot appear in a Rust
+//! identifier or `::`-path segment, so this qualified root can never
+//! collide with a real `::`-joined symbolPath from anywhere else in the
+//! dump -- deterministic, collision-free across packages, and visibly
+//! test-scoped at a glance. `lib.rs`/`main.rs`/`bin/<name>.rs` roots are
+//! unaffected by this and keep their v1.1 unqualified names.
 //!
 //! `file` in the emitted JSON is relative to `<root-dir>` (not to the
 //! individual crate), so that files from different crates never collide
@@ -59,7 +103,10 @@
 //! A file that fails to read or fails to `syn::parse_file` no longer
 //! aborts the whole dump (v1.1, CONTRACT-M15 §5): it contributes a single
 //! file-level entity (same root-naming rules as above, no descendants)
-//! with `"resolution": "gap"` instead.
+//! with `"resolution": "gap"` instead. The same tolerance applies to an
+//! individual `mod foo;` include (v0.4.0, see above): the containing file
+//! and every sibling item are unaffected, only that one `mod` subtree
+//! becomes a gap leaf.
 
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -208,7 +255,7 @@ fn dump_crate_entities(root: &Path, crate_dir: &Path, pkg_name: &str, out: &mut 
                 continue;
             }
             let rel_file = root_relative_file(root, &file_path);
-            process_root_file(&file_path, &root_name, &rel_file, out);
+            process_root_file(&file_path, &root_name, &rel_file, root, out);
         }
     }
 
@@ -225,12 +272,16 @@ fn dump_crate_entities(root: &Path, crate_dir: &Path, pkg_name: &str, out: &mut 
             // under a subdirectory (e.g. tests/common/mod.rs helpers) is
             // skipped -- same simplification as unreachable non-root files
             // under src/ (see module doc comment).
-            let root_name = match rel_to_tests.strip_suffix(".rs") {
-                Some(stem) if !stem.is_empty() && !stem.contains('/') => stem.to_string(),
+            let stem = match rel_to_tests.strip_suffix(".rs") {
+                Some(stem) if !stem.is_empty() && !stem.contains('/') => stem,
                 _ => continue,
             };
+            // v1.2: qualify by owning package (see module doc comment) so
+            // same-named tests/*.rs files in different packages never
+            // collide under (kind, symbolPath) identity.
+            let root_name = format!("{}#tests/{}", pkg_name, stem);
             let rel_file = root_relative_file(root, &file_path);
-            process_root_file(&file_path, &root_name, &rel_file, out);
+            process_root_file(&file_path, &root_name, &rel_file, root, out);
         }
     }
 }
@@ -258,28 +309,16 @@ fn root_relative_file(root: &Path, file_path: &Path) -> String {
 }
 
 /// Read + parse one recognized crate-root `.rs` file and append either its
-/// full entity tree (module root + descendants) or, if reading/parsing
+/// full entity tree (module root + descendants, descendants following
+/// `mod foo;` includes recursively -- v0.4.0) or, if reading/parsing
 /// fails, a single `resolution: "gap"` file-level entity (CONTRACT-M15
-/// §5) -- never aborts the whole dump.
-fn process_root_file(file_path: &Path, root_name: &str, rel_file: &str, out: &mut Vec<Entity>) {
-    // Read as raw bytes + lossy-decode rather than `fs::read_to_string`:
-    // invalid UTF-8 no longer needs its own failure branch -- the lossy
-    // text will simply fail `syn::parse_file` below and fall into the gap
-    // path like any other unparseable file. A true read failure (permission
-    // denied, file vanished mid-walk) still can't produce any text, so it
-    // gets its own (empty-content) gap entity.
-    let content = match fs::read(file_path) {
-        Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
-        Err(_) => {
-            push_gap_entity(root_name, rel_file, "", 1, out);
-            return;
-        }
-    };
-
-    let total_lines = content.lines().count().max(1);
-
-    match syn::parse_file(&content) {
-        Ok(parsed) => {
+/// §5) -- never aborts the whole dump. `root` is the overall discovery
+/// root, needed to compute root-relative `file` paths for any submodule
+/// files pulled in along the way.
+fn process_root_file(file_path: &Path, root_name: &str, rel_file: &str, root: &Path, out: &mut Vec<Entity>) {
+    match read_and_parse(file_path) {
+        ReadParseResult::Ok(content, parsed) => {
+            let total_lines = content.lines().count().max(1);
             out.push(Entity {
                 kind: "module",
                 name: root_name.to_string(),
@@ -292,9 +331,50 @@ fn process_root_file(file_path: &Path, root_name: &str, rel_file: &str, out: &mu
                 is_test: false,
                 resolution: "clean",
             });
-            visit_items(&parsed.items, root_name, rel_file, &content, out);
+            let file_dir = file_path.parent().unwrap_or_else(|| Path::new(""));
+            let module_dir = module_dir_for(file_path, true);
+            visit_items(
+                &parsed.items,
+                root_name,
+                rel_file,
+                &content,
+                root,
+                file_dir,
+                &module_dir,
+                out,
+            );
         }
-        Err(_) => push_gap_entity(root_name, rel_file, &content, total_lines, out),
+        ReadParseResult::ReadErr => push_gap_entity(root_name, rel_file, "", 1, out),
+        ReadParseResult::ParseErr(content) => {
+            let total_lines = content.lines().count().max(1);
+            push_gap_entity(root_name, rel_file, &content, total_lines, out);
+        }
+    }
+}
+
+/// Read a `.rs` file as (lossy-decoded) text and attempt to `syn::parse_file`
+/// it, distinguishing "couldn't even read it" from "read fine but doesn't
+/// parse" -- both feed a `resolution: "gap"` entity somewhere upstream, but
+/// only the latter has real content to hash.
+enum ReadParseResult {
+    Ok(String, syn::File),
+    ReadErr,
+    ParseErr(String),
+}
+
+fn read_and_parse(file_path: &Path) -> ReadParseResult {
+    // Read as raw bytes + lossy-decode rather than `fs::read_to_string`:
+    // invalid UTF-8 no longer needs its own failure branch -- the lossy
+    // text will simply fail `syn::parse_file` below and fall into the gap
+    // path like any other unparseable file. A true read failure (permission
+    // denied, file vanished mid-walk) still can't produce any text.
+    let content = match fs::read(file_path) {
+        Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
+        Err(_) => return ReadParseResult::ReadErr,
+    };
+    match syn::parse_file(&content) {
+        Ok(parsed) => ReadParseResult::Ok(content, parsed),
+        Err(_) => ReadParseResult::ParseErr(content),
     }
 }
 
@@ -305,27 +385,132 @@ fn push_gap_entity(
     total_lines: usize,
     out: &mut Vec<Entity>,
 ) {
+    push_gap_module(
+        root_name.to_string(),
+        root_name.to_string(),
+        rel_file.to_string(),
+        1,
+        total_lines,
+        hash_span(content, 1, total_lines),
+        None,
+        out,
+    );
+}
+
+/// Append a `resolution: "gap"` module entity -- the general form used both
+/// for a whole unresolvable/unreadable/unparseable crate-root file
+/// (`push_gap_entity`, no parent) and for a single unresolvable `mod foo;`
+/// include nested somewhere inside an otherwise-clean file (has a parent).
+fn push_gap_module(
+    name: String,
+    symbol_path: String,
+    rel_file: String,
+    start_line: usize,
+    end_line: usize,
+    content_hash: String,
+    parent_symbol_path: Option<String>,
+    out: &mut Vec<Entity>,
+) {
     out.push(Entity {
         kind: "module",
-        name: root_name.to_string(),
-        symbol_path: root_name.to_string(),
-        file: rel_file.to_string(),
-        start_line: 1,
-        end_line: total_lines,
-        content_hash: hash_span(content, 1, total_lines),
-        parent_symbol_path: None,
+        name,
+        symbol_path,
+        file: rel_file,
+        start_line,
+        end_line,
+        content_hash,
+        parent_symbol_path,
         is_test: false,
         resolution: "gap",
     });
 }
 
-/// Walk one file's top-level items, recursing into `mod { ... }` bodies and
-/// `impl` blocks, appending every CONTRACT §6 entity found to `out`.
+/// The directory a `.rs` file "owns" for resolving its own out-of-line
+/// `mod foo;` children, per Rust's module-file rules: a crate-root file
+/// (any name -- `is_root`) or a `mod.rs` file owns its own containing
+/// directory; any other `<name>.rs` file owns a `<name>/` sibling
+/// directory instead.
+fn module_dir_for(file_path: &Path, is_root: bool) -> PathBuf {
+    let parent = file_path.parent().unwrap_or_else(|| Path::new(""));
+    if is_root || file_path.file_name().map(|n| n == "mod.rs").unwrap_or(false) {
+        return parent.to_path_buf();
+    }
+    match file_path.file_stem() {
+        Some(stem) => parent.join(stem),
+        None => parent.to_path_buf(),
+    }
+}
+
+/// A plain string-literal `#[path = "..."]` attribute's value, if present
+/// (the only form this tool honors -- CONTRACT scope, see module doc
+/// comment).
+fn path_attr_literal(attrs: &[syn::Attribute]) -> Option<String> {
+    for attr in attrs {
+        if !attr.path().is_ident("path") {
+            continue;
+        }
+        if let syn::Meta::NameValue(nv) = &attr.meta {
+            if let syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(s),
+                ..
+            }) = &nv.value
+            {
+                return Some(s.value());
+            }
+        }
+    }
+    None
+}
+
+/// Resolve an out-of-line `mod name;` item to the file it names, per Rust's
+/// module-file rules (module doc comment): an explicit `#[path = "..."]`
+/// wins outright (resolved relative to `file_dir`, the declaring file's
+/// own directory) with no fallback; otherwise `<module_dir>/name.rs` is
+/// tried before `<module_dir>/name/mod.rs` (first-found-wins, deterministic
+/// order -- handles a tree that ships both, e.g. via cfg-gating rustc
+/// itself would pick between). `None` means unresolvable (the caller emits
+/// a gap entity).
+fn resolve_mod_path(
+    module_dir: &Path,
+    file_dir: &Path,
+    name: &str,
+    attrs: &[syn::Attribute],
+) -> Option<PathBuf> {
+    if let Some(p) = path_attr_literal(attrs) {
+        let candidate = file_dir.join(p);
+        return if candidate.is_file() {
+            Some(candidate)
+        } else {
+            None
+        };
+    }
+    let as_file = module_dir.join(format!("{}.rs", name));
+    if as_file.is_file() {
+        return Some(as_file);
+    }
+    let as_dir_mod = module_dir.join(name).join("mod.rs");
+    if as_dir_mod.is_file() {
+        return Some(as_dir_mod);
+    }
+    None
+}
+
+/// Walk one file's top-level items, recursing into `mod { ... }` bodies,
+/// out-of-line `mod foo;` includes (resolved to their own file -- v0.4.0,
+/// see module doc comment), and `impl` blocks, appending every CONTRACT §6
+/// entity found to `out`. `root` is the overall discovery root (for
+/// root-relative `file` paths on any submodule file pulled in);
+/// `file_dir`/`module_dir` are the *current* file's own directory and the
+/// directory it owns for resolving its out-of-line children, respectively
+/// (see `module_dir_for`).
 fn visit_items(
     items: &[Item],
     parent_module_path: &str,
     rel_file: &str,
     source: &str,
+    root: &Path,
+    file_dir: &Path,
+    module_dir: &Path,
     out: &mut Vec<Entity>,
 ) {
     for item in items {
@@ -333,21 +518,117 @@ fn visit_items(
             Item::Mod(m) => {
                 let name = m.ident.to_string();
                 let symbol_path = format!("{}::{}", parent_module_path, name);
-                let (start_line, end_line) = line_span(item.span());
-                out.push(Entity {
-                    kind: "module",
-                    name,
-                    symbol_path: symbol_path.clone(),
-                    file: rel_file.to_string(),
-                    start_line,
-                    end_line,
-                    content_hash: hash_span(source, start_line, end_line),
-                    parent_symbol_path: Some(parent_module_path.to_string()),
-                    is_test: false,
-                    resolution: "clean",
-                });
-                if let Some((_, content)) = &m.content {
-                    visit_items(content, &symbol_path, rel_file, source, out);
+                let (decl_start, decl_end) = line_span(item.span());
+
+                match &m.content {
+                    Some((_, content)) => {
+                        out.push(Entity {
+                            kind: "module",
+                            name: name.clone(),
+                            symbol_path: symbol_path.clone(),
+                            file: rel_file.to_string(),
+                            start_line: decl_start,
+                            end_line: decl_end,
+                            content_hash: hash_span(source, decl_start, decl_end),
+                            parent_symbol_path: Some(parent_module_path.to_string()),
+                            is_test: false,
+                            resolution: "clean",
+                        });
+                        // An inline module owns a `<module_dir>/<name>/`
+                        // directory for its own out-of-line children
+                        // (unless overridden by its own `#[path]`), same
+                        // as Rust itself resolves it.
+                        let child_module_dir = match path_attr_literal(&m.attrs) {
+                            Some(p) => file_dir.join(p),
+                            None => module_dir.join(&name),
+                        };
+                        visit_items(
+                            content,
+                            &symbol_path,
+                            rel_file,
+                            source,
+                            root,
+                            file_dir,
+                            &child_module_dir,
+                            out,
+                        );
+                    }
+                    None => match resolve_mod_path(module_dir, file_dir, &name, &m.attrs) {
+                        Some(target_path) => match read_and_parse(&target_path) {
+                            ReadParseResult::Ok(sub_content, parsed) => {
+                                let sub_rel_file = root_relative_file(root, &target_path);
+                                let total_lines = sub_content.lines().count().max(1);
+                                out.push(Entity {
+                                    kind: "module",
+                                    name: name.clone(),
+                                    symbol_path: symbol_path.clone(),
+                                    file: sub_rel_file.clone(),
+                                    start_line: 1,
+                                    end_line: total_lines,
+                                    content_hash: hash_span(&sub_content, 1, total_lines),
+                                    parent_symbol_path: Some(parent_module_path.to_string()),
+                                    is_test: false,
+                                    resolution: "clean",
+                                });
+                                let sub_file_dir =
+                                    target_path.parent().unwrap_or_else(|| Path::new("")).to_path_buf();
+                                let sub_module_dir = module_dir_for(&target_path, false);
+                                visit_items(
+                                    &parsed.items,
+                                    &symbol_path,
+                                    &sub_rel_file,
+                                    &sub_content,
+                                    root,
+                                    &sub_file_dir,
+                                    &sub_module_dir,
+                                    out,
+                                );
+                            }
+                            ReadParseResult::ReadErr => {
+                                let sub_rel_file = root_relative_file(root, &target_path);
+                                push_gap_module(
+                                    name,
+                                    symbol_path,
+                                    sub_rel_file,
+                                    1,
+                                    1,
+                                    hash_span("", 1, 1),
+                                    Some(parent_module_path.to_string()),
+                                    out,
+                                );
+                            }
+                            ReadParseResult::ParseErr(sub_content) => {
+                                let sub_rel_file = root_relative_file(root, &target_path);
+                                let total_lines = sub_content.lines().count().max(1);
+                                push_gap_module(
+                                    name,
+                                    symbol_path,
+                                    sub_rel_file,
+                                    1,
+                                    total_lines,
+                                    hash_span(&sub_content, 1, total_lines),
+                                    Some(parent_module_path.to_string()),
+                                    out,
+                                );
+                            }
+                        },
+                        None => {
+                            // Unresolvable: no target file to point at, so
+                            // the gap entity is grounded in the *declaring*
+                            // file's own `mod foo;` line instead (still
+                            // real content, just not the submodule's).
+                            push_gap_module(
+                                name,
+                                symbol_path,
+                                rel_file.to_string(),
+                                decl_start,
+                                decl_end,
+                                hash_span(source, decl_start, decl_end),
+                                Some(parent_module_path.to_string()),
+                                out,
+                            );
+                        }
+                    },
                 }
             }
 
@@ -788,6 +1069,13 @@ mod tests {
         fs::write(dir.join("src").join("lib.rs"), lib_rs).unwrap();
     }
 
+    /// Writes a direct-child `tests/<file_name>` file (content verbatim)
+    /// into an already-`write_crate`'d crate directory.
+    fn write_test_file(crate_dir: &Path, file_name: &str, content: &str) {
+        fs::create_dir_all(crate_dir.join("tests")).unwrap();
+        fs::write(crate_dir.join("tests").join(file_name), content).unwrap();
+    }
+
     #[test]
     fn path_to_string_joins_segments() {
         let path: syn::Path = syn::parse_str("std::fmt::Display").unwrap();
@@ -1045,6 +1333,64 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
+    // ------------------------------------------------------------------
+    // v1.2: per-file test-crate identity collision fix (CONTRACT-M15 §5
+    // extended). PROBE-REPORT.md §7 finding #2: two independently-
+    // compiled crates that happen to ship a same-named direct-child
+    // `tests/<name>.rs` file used to collide on an unqualified `<name>`
+    // root symbolPath, silently dropping one of the two under
+    // EntityResolution.SortAndDeduplicate's (kind, symbolPath) identity.
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn same_named_tests_file_in_two_packages_does_not_collide() {
+        let root = temp_crate_dir("two-crate-same-named-test-file");
+        fs::write(
+            root.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"alpha\", \"beta\"]\n",
+        )
+        .unwrap();
+        write_crate(&root.join("alpha"), "alpha", "pub fn a_fn() {}\n");
+        write_crate(&root.join("beta"), "beta", "pub fn b_fn() {}\n");
+        // Both packages ship a `tests/smoke.rs` with the identical inner
+        // fn name -- the exact shape rustc itself would compile as two
+        // independent crates both literally named "smoke".
+        write_test_file(&root.join("alpha"), "smoke.rs", "#[test]\nfn it_works() {}\n");
+        write_test_file(&root.join("beta"), "smoke.rs", "#[test]\nfn it_works() {}\n");
+
+        let entities = dump_entities(&root);
+        let by_symbol: std::collections::BTreeMap<&str, &Entity> = entities
+            .iter()
+            .map(|e| (e.symbol_path.as_str(), e))
+            .collect();
+
+        // Package-qualified root symbolPaths: no collision, both present.
+        assert!(by_symbol.contains_key("alpha#tests/smoke"));
+        assert!(by_symbol.contains_key("beta#tests/smoke"));
+        assert!(by_symbol.contains_key("alpha#tests/smoke::it_works"));
+        assert!(by_symbol.contains_key("beta#tests/smoke::it_works"));
+
+        assert!(by_symbol["alpha#tests/smoke"].is_test);
+        assert!(by_symbol["beta#tests/smoke"].is_test);
+        assert!(by_symbol["alpha#tests/smoke::it_works"].is_test);
+        assert!(by_symbol["beta#tests/smoke::it_works"].is_test);
+
+        // `file` is root-relative, disambiguating the two crates' identical
+        // "tests/smoke.rs" leaf path too.
+        assert_eq!(by_symbol["alpha#tests/smoke"].file, "alpha/tests/smoke.rs");
+        assert_eq!(by_symbol["beta#tests/smoke"].file, "beta/tests/smoke.rs");
+
+        // Nothing from either tests/smoke.rs got dropped: 2 entities each
+        // (root module + the one fn) = 4 total, none deduplicated away.
+        let test_related = entities
+            .iter()
+            .filter(|e| e.file.ends_with("tests/smoke.rs"))
+            .count();
+        assert_eq!(test_related, 4);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
     #[test]
     fn dump_entities_single_crate_root_matches_v1_0_shape() {
         // A root directory that IS a crate (single Cargo.toml, right at
@@ -1065,6 +1411,211 @@ mod tests {
             .map(|e| (e.symbol_path.as_str(), e))
             .collect();
         assert_eq!(by_symbol["widgets"].file, "src/lib.rs");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    // ------------------------------------------------------------------
+    // v0.4.0: out-of-line `mod foo;` file resolution.
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn out_of_line_mod_pulls_in_submodule_file_as_children() {
+        // lib.rs declares `mod a;` -> src/a.rs; a.rs itself declares
+        // `mod b;` -> src/a/b.rs (a.rs is not a directory owner, so its
+        // own children live under a src/a/ sibling directory). Recursion
+        // through a second out-of-line level, exactly the task's own
+        // worked example.
+        let dir = temp_crate_dir("out-of-line-mod");
+        write_crate(&dir, "widgets", "mod a;\n");
+        fs::write(dir.join("src").join("a.rs"), "pub fn a_fn() {}\n\nmod b;\n").unwrap();
+        fs::create_dir_all(dir.join("src").join("a")).unwrap();
+        fs::write(dir.join("src").join("a").join("b.rs"), "pub fn b_fn() {}\n").unwrap();
+
+        let entities = dump_entities(&dir);
+        let by_symbol: std::collections::BTreeMap<&str, &Entity> = entities
+            .iter()
+            .map(|e| (e.symbol_path.as_str(), e))
+            .collect();
+
+        assert_eq!(by_symbol["widgets::a"].kind, "module");
+        assert_eq!(by_symbol["widgets::a"].file, "src/a.rs");
+        assert_eq!(by_symbol["widgets::a"].resolution, "clean");
+        assert_eq!(
+            by_symbol["widgets::a"].parent_symbol_path.as_deref(),
+            Some("widgets")
+        );
+        assert_eq!(by_symbol["widgets::a::a_fn"].file, "src/a.rs");
+
+        assert_eq!(by_symbol["widgets::a::b"].kind, "module");
+        assert_eq!(by_symbol["widgets::a::b"].file, "src/a/b.rs");
+        assert_eq!(by_symbol["widgets::a::b"].resolution, "clean");
+        assert_eq!(
+            by_symbol["widgets::a::b"].parent_symbol_path.as_deref(),
+            Some("widgets::a")
+        );
+
+        assert_eq!(by_symbol["widgets::a::b::b_fn"].kind, "fn");
+        assert_eq!(by_symbol["widgets::a::b::b_fn"].file, "src/a/b.rs");
+        assert_eq!(
+            by_symbol["widgets::a::b::b_fn"]
+                .parent_symbol_path
+                .as_deref(),
+            Some("widgets::a::b")
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn mod_resolves_via_name_slash_mod_rs_when_name_rs_is_absent() {
+        let dir = temp_crate_dir("mod-rs-pattern");
+        write_crate(&dir, "widgets", "mod a;\n");
+        fs::create_dir_all(dir.join("src").join("a")).unwrap();
+        fs::write(
+            dir.join("src").join("a").join("mod.rs"),
+            "pub fn a_fn() {}\n\nmod b;\n",
+        )
+        .unwrap();
+        // a/mod.rs is a directory owner of src/a/ itself, so its own
+        // `mod b;` finds src/a/b.rs, not src/a/a/b.rs.
+        fs::write(dir.join("src").join("a").join("b.rs"), "pub fn b_fn() {}\n").unwrap();
+
+        let entities = dump_entities(&dir);
+        let by_symbol: std::collections::BTreeMap<&str, &Entity> = entities
+            .iter()
+            .map(|e| (e.symbol_path.as_str(), e))
+            .collect();
+
+        assert_eq!(by_symbol["widgets::a"].file, "src/a/mod.rs");
+        assert_eq!(by_symbol["widgets::a::b"].file, "src/a/b.rs");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn mod_prefers_name_rs_over_name_slash_mod_rs_when_both_exist() {
+        // Deterministic first-found-wins order: name.rs before
+        // name/mod.rs, for a tree that (e.g. via cfg-gating rustc itself
+        // would pick between) ships both.
+        let dir = temp_crate_dir("first-found-wins");
+        write_crate(&dir, "widgets", "mod a;\n");
+        fs::write(dir.join("src").join("a.rs"), "pub fn from_flat() {}\n").unwrap();
+        fs::create_dir_all(dir.join("src").join("a")).unwrap();
+        fs::write(
+            dir.join("src").join("a").join("mod.rs"),
+            "pub fn from_dir() {}\n",
+        )
+        .unwrap();
+
+        let entities = dump_entities(&dir);
+        let symbols: std::collections::BTreeSet<&str> =
+            entities.iter().map(|e| e.symbol_path.as_str()).collect();
+        assert!(symbols.contains("widgets::a::from_flat"));
+        assert!(!symbols.contains("widgets::a::from_dir"));
+
+        let by_symbol: std::collections::BTreeMap<&str, &Entity> = entities
+            .iter()
+            .map(|e| (e.symbol_path.as_str(), e))
+            .collect();
+        assert_eq!(by_symbol["widgets::a"].file, "src/a.rs");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn mod_with_path_attribute_resolves_relative_to_declaring_files_dir() {
+        let dir = temp_crate_dir("path-attr");
+        write_crate(
+            &dir,
+            "widgets",
+            "#[path = \"custom_impl.rs\"]\nmod weird;\n",
+        );
+        fs::write(
+            dir.join("src").join("custom_impl.rs"),
+            "pub fn weird_fn() {}\n",
+        )
+        .unwrap();
+
+        let entities = dump_entities(&dir);
+        let by_symbol: std::collections::BTreeMap<&str, &Entity> = entities
+            .iter()
+            .map(|e| (e.symbol_path.as_str(), e))
+            .collect();
+
+        assert_eq!(by_symbol["widgets::weird"].file, "src/custom_impl.rs");
+        assert_eq!(by_symbol["widgets::weird"].resolution, "clean");
+        assert_eq!(
+            by_symbol["widgets::weird::weird_fn"].file,
+            "src/custom_impl.rs"
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn unresolvable_mod_include_emits_a_gap_entity_but_does_not_abort() {
+        let dir = temp_crate_dir("unresolvable-mod");
+        write_crate(&dir, "widgets", "pub fn ok_fn() {}\n\nmod missing;\n");
+
+        let entities = dump_entities(&dir);
+        let by_symbol: std::collections::BTreeMap<&str, &Entity> = entities
+            .iter()
+            .map(|e| (e.symbol_path.as_str(), e))
+            .collect();
+
+        assert_eq!(by_symbol["widgets"].resolution, "clean");
+        assert!(by_symbol.contains_key("widgets::ok_fn"));
+
+        assert_eq!(by_symbol["widgets::missing"].kind, "module");
+        assert_eq!(by_symbol["widgets::missing"].resolution, "gap");
+        // No target file exists, so the gap is grounded in the declaring
+        // file's own `mod missing;` line instead.
+        assert_eq!(by_symbol["widgets::missing"].file, "src/lib.rs");
+        assert_eq!(
+            by_symbol["widgets::missing"].parent_symbol_path.as_deref(),
+            Some("widgets")
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn mod_target_found_but_unparseable_emits_gap_grounded_in_the_target_file() {
+        let dir = temp_crate_dir("mod-target-unparseable");
+        write_crate(&dir, "widgets", "mod broken;\n");
+        fs::write(dir.join("src").join("broken.rs"), "fn broken( {\n").unwrap();
+
+        let entities = dump_entities(&dir);
+        let by_symbol: std::collections::BTreeMap<&str, &Entity> = entities
+            .iter()
+            .map(|e| (e.symbol_path.as_str(), e))
+            .collect();
+
+        assert_eq!(by_symbol["widgets::broken"].kind, "module");
+        assert_eq!(by_symbol["widgets::broken"].resolution, "gap");
+        // Here the target file WAS found, just failed to parse, so the gap
+        // is grounded in the submodule file itself, not the declaring one.
+        assert_eq!(by_symbol["widgets::broken"].file, "src/broken.rs");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn dump_is_deterministic_across_runs() {
+        let dir = temp_crate_dir("mod-determinism");
+        write_crate(&dir, "widgets", "pub fn ok_fn() {}\n\nmod a;\n");
+        fs::write(
+            dir.join("src").join("a.rs"),
+            "pub fn a_fn() {}\n\nmod b;\n",
+        )
+        .unwrap();
+        fs::create_dir_all(dir.join("src").join("a")).unwrap();
+        fs::write(dir.join("src").join("a").join("b.rs"), "pub fn b_fn() {}\n").unwrap();
+
+        let json_1 = render_json("p", "r", &dump_entities(&dir));
+        let json_2 = render_json("p", "r", &dump_entities(&dir));
+        assert_eq!(json_1, json_2, "two runs over the same tree must be byte-identical");
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -1101,7 +1652,9 @@ mod tests {
         let entities = dump_entities(&dir);
         let gap: Vec<&Entity> = entities.iter().filter(|e| e.resolution == "gap").collect();
         assert_eq!(gap.len(), 1);
-        assert_eq!(gap[0].symbol_path, "broken");
+        // v1.2: package-qualified root symbolPath, same as any other
+        // tests/*.rs root.
+        assert_eq!(gap[0].symbol_path, "widgets#tests/broken");
         assert_eq!(gap[0].file, "tests/broken.rs");
         assert!(gap[0].is_test, "a gap file under tests/ is still test-ish");
 
@@ -1156,9 +1709,14 @@ mod tests {
             .collect();
 
         assert!(!by_symbol["widgets"].is_test);
-        assert!(by_symbol["it"].is_test, "the tests/*.rs root itself is test-ish");
-        assert_eq!(by_symbol["it"].file, "tests/it.rs");
-        assert!(by_symbol["it::it_works"].is_test);
+        // v1.2: the tests/*.rs root's symbolPath is qualified by its
+        // owning package ("widgets#tests/it"), not the bare file stem.
+        assert!(
+            by_symbol["widgets#tests/it"].is_test,
+            "the tests/*.rs root itself is test-ish"
+        );
+        assert_eq!(by_symbol["widgets#tests/it"].file, "tests/it.rs");
+        assert!(by_symbol["widgets#tests/it::it_works"].is_test);
 
         let _ = fs::remove_dir_all(&dir);
     }
