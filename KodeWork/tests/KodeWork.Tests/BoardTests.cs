@@ -10,16 +10,16 @@ public sealed class BoardTests
         string home = NewHome();
         using var board = KodeWorkBoard.Initialize(home);
 
-        var area = board.Add("govert", "add area", new AddItemRequest("Universe", "area"));
-        var task = board.Add("koderbot", "add task", new AddItemRequest("Install SDK", "task", area.Id));
+        var area = board.Add("alice", "add area", new AddItemRequest("Universe", "area"));
+        var task = board.Add("bob", "add task", new AddItemRequest("Install SDK", "task", area.Id));
         Assert.Equal(area.Id, task.ParentId);
         Assert.Equal("open", task.Status);
 
-        board.Set("govert", "rename", task.Id, new SetItemRequest(Title: "Install .NET 10"));
-        board.Set("govert", "doing", task.Id, new SetItemRequest(Status: "doing"));
-        var movedParent = board.Add("govert", "other area", new AddItemRequest("Toolchain", "area"));
-        board.Set("govert", "move", task.Id, new SetItemRequest(ParentId: movedParent.Id));
-        board.Set("govert", "done", task.Id, new SetItemRequest(Status: "done"));
+        board.Set("alice", "rename", task.Id, new SetItemRequest(Title: "Install .NET 10"));
+        board.Set("alice", "doing", task.Id, new SetItemRequest(Status: "doing"));
+        var movedParent = board.Add("alice", "other area", new AddItemRequest("Toolchain", "area"));
+        board.Set("alice", "move", task.Id, new SetItemRequest(ParentId: movedParent.Id));
+        board.Set("alice", "done", task.Id, new SetItemRequest(Status: "done"));
 
         var view = board.Current();
         Assert.Equal(2, view.Roots.Count);
@@ -41,11 +41,11 @@ public sealed class BoardTests
     {
         string home = NewHome();
         using var board = KodeWorkBoard.Initialize(home);
-        var item = board.Add("govert", "create", new AddItemRequest("Alpha", "idea"));
+        var item = board.Add("alice", "create", new AddItemRequest("Alpha", "idea"));
         var first = board.Current();
         string receipt = first.Label.ReceiptId;
 
-        board.Set("govert", "rename", item.Id, new SetItemRequest(Title: "Beta"));
+        board.Set("alice", "rename", item.Id, new SetItemRequest(Title: "Beta"));
         Assert.Equal("Beta", board.Get(item.Id)!.Title);
 
         using var again = KodeWorkBoard.Open(home);
@@ -57,9 +57,9 @@ public sealed class BoardTests
     {
         string home = NewHome();
         using var board = KodeWorkBoard.Initialize(home);
-        var parent = board.Add("govert", "p", new AddItemRequest("Parent", "area"));
-        var child = board.Add("govert", "c", new AddItemRequest("Child", "task", parent.Id));
-        board.Set("govert", "unparent", child.Id, new SetItemRequest(ClearParent: true));
+        var parent = board.Add("alice", "p", new AddItemRequest("Parent", "area"));
+        var child = board.Add("alice", "c", new AddItemRequest("Child", "task", parent.Id));
+        board.Set("alice", "unparent", child.Id, new SetItemRequest(ClearParent: true));
         var view = board.Current();
         Assert.Contains(view.Roots, r => r.Item.Id == child.Id);
     }
@@ -69,10 +69,10 @@ public sealed class BoardTests
     {
         string home = NewHome();
         using var board = KodeWorkBoard.Initialize(home);
-        var a = board.Add("govert", "a", new AddItemRequest("A", "area"));
-        var b = board.Add("govert", "b", new AddItemRequest("B", "area", a.Id));
+        var a = board.Add("alice", "a", new AddItemRequest("A", "area"));
+        var b = board.Add("alice", "b", new AddItemRequest("B", "area", a.Id));
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            board.Set("govert", "cycle", a.Id, new SetItemRequest(ParentId: b.Id)));
+            board.Set("alice", "cycle", a.Id, new SetItemRequest(ParentId: b.Id)));
         Assert.Contains("cycle", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -81,7 +81,7 @@ public sealed class BoardTests
     {
         string home = NewHome();
         using var board = KodeWorkBoard.Initialize(home);
-        var item = board.Add("govert", "why", new AddItemRequest("Seen", "note"));
+        var item = board.Add("alice", "why", new AddItemRequest("Seen", "note"));
         Assert.False(string.IsNullOrEmpty(item.TitleAid));
         var expl = board.Why(item.TitleAid!);
         Assert.Equal("accepted", expl.Status);
@@ -92,12 +92,12 @@ public sealed class BoardTests
     {
         string home = NewHome();
         using var board = KodeWorkBoard.Initialize(home);
-        UniverseSeed.Apply(board, "koderbot");
-        UniverseSeed.Apply(board, "koderbot");
+        DemoSeed.Apply(board, "bob");
+        DemoSeed.Apply(board, "bob");
         var view = board.Current();
         Assert.Single(view.Roots);
-        Assert.Equal("Koderbot universe", view.Roots[0].Item.Title);
-        Assert.Equal(3, view.Roots[0].Children.Count);
+        Assert.Equal("Acme", view.Roots[0].Item.Title);
+        Assert.Equal(2, view.Roots[0].Children.Count);
     }
 
     [Fact]
@@ -105,8 +105,8 @@ public sealed class BoardTests
     {
         string home = NewHome();
         using var board = KodeWorkBoard.Initialize(home);
-        board.Note("govert", "remember Mullvad");
-        Assert.Contains(board.ListNotes(), n => n.Text == "remember Mullvad");
+        board.Note("alice", "remember the milk");
+        Assert.Contains(board.ListNotes(), n => n.Text == "remember the milk");
     }
 
     private static string NewHome()

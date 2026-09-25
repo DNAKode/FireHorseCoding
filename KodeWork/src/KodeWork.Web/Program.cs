@@ -6,11 +6,10 @@ using Microsoft.AspNetCore.HttpOverrides;
 string home = Environment.GetEnvironmentVariable("KODEWORK_HOME")
     ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "var", "kodework");
 string? data = Environment.GetEnvironmentVariable("KODEWORK_DATA");
-string actorDefault = Environment.GetEnvironmentVariable("KODEWORK_ACTOR") ?? "govert";
+string actorDefault = Environment.GetEnvironmentVariable("KODEWORK_ACTOR") ?? "operator";
 
 Directory.CreateDirectory(home);
 var board = KodeWorkBoard.Initialize(home, data);
-UniverseSeed.Apply(board, "koderbot");
 board.Project();
 
 var builder = WebApplication.CreateBuilder(args);

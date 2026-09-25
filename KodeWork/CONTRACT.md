@@ -22,4 +22,4 @@ Subjects: `kw:` + ULID. Ordinary edits append a new assertion on the same claim 
 
 `init` `add` `set` `note` `ask/tree` `why` `project`
 
-Actors: `govert`, `koderbot`. Ledger is the write path. Git (`KodeWorkData`) is the projection organ.
+Actors are caller-chosen strings. Ledger is the write path. Git (`KODEWORK_DATA`) is the projection organ — keep that repo private; this contract is public system code.

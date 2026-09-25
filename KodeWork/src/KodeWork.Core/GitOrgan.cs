@@ -5,18 +5,23 @@ namespace KodeWork.Core;
 /// <summary>Git as the KodeWork evidence organ. Projection files only; never the live SQLite file.</summary>
 public static class GitOrgan
 {
-    public static void EnsureRepo(string path, string remoteUrl)
+    public static void EnsureRepo(string path, string? remoteUrl = null)
     {
         Directory.CreateDirectory(path);
         if (!Directory.Exists(Path.Combine(path, ".git")))
         {
             Run(path, "init", "-b", "main");
-            Run(path, "config", "user.name", "Koderbot");
-            Run(path, "config", "user.email", "koderbot@dnakode.com");
-            File.WriteAllText(Path.Combine(path, "README.md"),
-                "# KodeWorkData\n\nPrivate text projection of the KodeWork board. The live ledger is SQLite beside the host; this repo is the readable organ.\n");
+            ConfigureIdentity(path);
+            if (!File.Exists(Path.Combine(path, "README.md")))
+            {
+                File.WriteAllText(Path.Combine(path, "README.md"),
+                    "# KodeWork data\n\nPrivate projection of a KodeWork board. Keep this repo private. The system code is separate.\n");
+            }
             EnsureGitignore(path);
-            Run(path, "remote", "add", "origin", remoteUrl);
+            if (!string.IsNullOrWhiteSpace(remoteUrl))
+            {
+                Run(path, "remote", "add", "origin", remoteUrl);
+            }
         }
     }
 
@@ -36,13 +41,12 @@ public static class GitOrgan
         {
             return;
         }
-        Run(path, "config", "user.name", "Koderbot");
-        Run(path, "config", "user.email", "koderbot@dnakode.com");
+        ConfigureIdentity(path);
         Run(path, "add", "-A");
         var diff = RunCapture(path, "diff", "--cached", "--quiet");
         if (diff.ExitCode == 0)
         {
-            return; // nothing staged
+            return;
         }
         Run(path, "commit", "-m", message);
     }
@@ -54,6 +58,14 @@ public static class GitOrgan
             return 0;
         }
         return RunCapture(path, "push", "-u", "origin", "main").ExitCode;
+    }
+
+    private static void ConfigureIdentity(string path)
+    {
+        string name = Environment.GetEnvironmentVariable("KODEWORK_GIT_NAME") ?? "KodeWork";
+        string email = Environment.GetEnvironmentVariable("KODEWORK_GIT_EMAIL") ?? "kodework@localhost";
+        Run(path, "config", "user.name", name);
+        Run(path, "config", "user.email", email);
     }
 
     private static void Run(string cwd, params string[] args)

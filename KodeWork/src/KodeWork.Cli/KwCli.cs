@@ -41,9 +41,14 @@ public static class KwCli
                 }),
                 "seed" => WithBoard(b =>
                 {
-                    UniverseSeed.Apply(b, Actor(rest));
+                    if (b.Current().Roots.Count > 0)
+                    {
+                        Console.WriteLine("board not empty; seed skipped");
+                        return 0;
+                    }
+                    DemoSeed.Apply(b, Actor(rest));
                     b.ProjectAndCommit("kw seed");
-                    Console.WriteLine("seeded");
+                    Console.WriteLine("seeded demo (Acme)");
                     return 0;
                 }),
                 _ => Fail($"unknown command '{cmd}'"),
@@ -63,7 +68,7 @@ public static class KwCli
         using var board = KodeWorkBoard.Initialize(home, data);
         if (data is not null)
         {
-            GitOrgan.EnsureRepo(data, "https://github.com/DNAKode/KodeWorkData.git");
+            GitOrgan.EnsureRepo(data, Environment.GetEnvironmentVariable("KODEWORK_DATA_REMOTE"));
         }
         board.Project();
         Console.WriteLine($"initialized {home}");
@@ -201,7 +206,7 @@ public static class KwCli
     private static string Actor(string[] rest) =>
         Flag(rest, "--actor")
         ?? Environment.GetEnvironmentVariable("KODEWORK_ACTOR")
-        ?? "koderbot";
+        ?? "local";
 
     private static string? Flag(string[] rest, string name)
     {
