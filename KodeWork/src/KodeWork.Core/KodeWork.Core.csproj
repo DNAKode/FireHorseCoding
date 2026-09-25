@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Gneiss\src\Gneiss.Cell\Gneiss.Cell.csproj" />
+  </ItemGroup>
+
+</Project>

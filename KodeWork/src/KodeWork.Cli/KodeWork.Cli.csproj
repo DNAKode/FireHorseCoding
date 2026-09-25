@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>kw</AssemblyName>
+    <RootNamespace>KodeWork.Cli</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\KodeWork.Core\KodeWork.Core.csproj" />
+  </ItemGroup>
+
+</Project>

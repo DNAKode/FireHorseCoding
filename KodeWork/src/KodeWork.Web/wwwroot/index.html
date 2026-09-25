@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KodeWork</title>
+  <style>
+    :root {
+      --bg: #12141a;
+      --card: #1b1f2a;
+      --line: #2a3140;
+      --text: #e8ead6;
+      --muted: #8b9278;
+      --accent: #c4f542;
+      --open: #8ec8ff;
+      --doing: #ffd36e;
+      --blocked: #ff8b7a;
+      --done: #8ee0a8;
+      --running: #7ee0d6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.45 "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap;
+      padding: 1rem 1.4rem; border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; background: var(--bg); z-index: 2;
+    }
+    h1 { font-size: 1.15rem; margin: 0; letter-spacing: .04em; }
+    h1 span { color: var(--accent); }
+    .meta { color: var(--muted); font-size: .85rem; }
+    button, select, input, textarea {
+      font: inherit; color: var(--text); background: var(--card);
+      border: 1px solid var(--line); border-radius: 6px; padding: .25rem .55rem;
+    }
+    button { cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+    main { display: grid; grid-template-columns: 1fr 22rem; min-height: calc(100vh - 3.4rem); }
+    @media (max-width: 880px) { main { grid-template-columns: 1fr; } }
+    #tree { padding: 1rem 1.2rem 4rem; }
+    .node { margin-left: .2rem; }
+    .row { display: flex; align-items: center; gap: .4rem; padding: .18rem 0; }
+    .row:hover { background: #181c26; }
+    .tw { width: 1.1rem; color: var(--muted); cursor: pointer; user-select: none; }
+    .kind { color: var(--muted); font-size: .75rem; min-width: 4.2rem; }
+    .st { font-size: .75rem; min-width: 4.2rem; cursor: pointer; }
+    .st.open { color: var(--open); }
+    .st.doing { color: var(--doing); }
+    .st.blocked { color: var(--blocked); }
+    .st.done { color: var(--done); }
+    .st.running { color: var(--running); }
+    .st.paused, .st.dropped { color: var(--muted); }
+    .title { flex: 1; border: none; background: transparent; padding: .15rem .3rem; }
+    .title:focus { background: var(--card); outline: 1px solid var(--accent); }
+    .kids { margin-left: 1.1rem; border-left: 1px solid var(--line); padding-left: .5rem; }
+    .kids.hid { display: none; }
+    .ops { opacity: 0; display: flex; gap: .2rem; }
+    .row:hover .ops { opacity: 1; }
+    .ops button { padding: 0 .35rem; font-size: .85rem; }
+    aside {
+      border-left: 1px solid var(--line); padding: 1rem; background: #141820;
+    }
+    aside h2 { font-size: .9rem; margin: 0 0 .6rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+    textarea { width: 100%; min-height: 12rem; resize: vertical; }
+    .id { color: var(--muted); font-size: .75rem; word-break: break-all; }
+    #why { white-space: pre-wrap; font-size: .8rem; color: var(--muted); margin-top: 1rem; }
+    .note { font-size: .85rem; color: var(--muted); margin: .3rem 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Kode<span>Work</span></h1>
+    <div class="meta" id="meta">loading…</div>
+    <select id="kind">
+      <option>task</option><option>area</option><option>project</option><option>idea</option>
+      <option>reminder</option><option>vpc</option><option>note</option><option>link</option>
+    </select>
+    <input id="newtitle" placeholder="new root item" size="28">
+    <button id="addroot">add</button>
+    <input id="notetext" placeholder="inbox note" size="24">
+    <button id="addnote">note</button>
+  </header>
+  <main>
+    <section id="tree"></section>
+    <aside>
+      <h2>Item</h2>
+      <div class="id" id="selid"></div>
+      <p id="seltitle"></p>
+      <textarea id="body" placeholder="body"></textarea>
+      <p><button id="savebody">save body</button></p>
+      <div id="why"></div>
+      <h2>Inbox</h2>
+      <div id="notes"></div>
+    </aside>
+  </main>
+  <script>
+    const api = (path, opt) => fetch(path, opt).then(r => {
+      if (!r.ok) return r.text().then(t => { throw new Error(t || r.status); });
+      return r.json();
+    });
+    const cycle = ["open","doing","blocked","done","dropped","running","paused"];
+    let board = null, selected = null, collapsed = new Set();
+
+    function render() {
+      document.getElementById("meta").textContent =
+        `tx ${board.label.dataCut} · ${board.label.resultHash.slice(0,12)}`;
+      document.getElementById("tree").innerHTML = board.roots.map(n => nodeHtml(n)).join("") || "<p class='meta'>empty board</p>";
+      document.getElementById("notes").innerHTML = (board.notes||[]).map(n =>
+        `<div class="note">${esc(n.actor)}: ${esc(n.text)}</div>`).join("") || "<div class='note'>(empty)</div>";
+      bindTree();
+      if (selected) select(selected);
+    }
+    function nodeHtml(n) {
+      const hid = collapsed.has(n.item.id);
+      const kids = n.children.map(nodeHtml).join("");
+      return `<div class="node" data-id="${n.item.id}">
+        <div class="row">
+          <span class="tw">${n.children.length ? (hid ? "▸" : "▾") : "·"}</span>
+          <span class="kind">${esc(n.item.kind)}</span>
+          <span class="st ${esc(n.item.status)}">${esc(n.item.status)}</span>
+          <input class="title" value="${escAttr(n.item.title)}">
+          <span class="ops">
+            <button data-act="child">+</button>
+            <button data-act="root">↗</button>
+          </span>
+        </div>
+        <div class="kids${hid ? " hid" : ""}">${kids}</div>
+      </div>`;
+    }
+    function bindTree() {
+      document.querySelectorAll(".node").forEach(el => {
+        const id = el.dataset.id;
+        el.querySelector(".tw").onclick = () => { if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id); render(); };
+        el.querySelector(".st").onclick = () => cycleStatus(id);
+        el.querySelector(".title").onchange = e => set(id, { title: e.target.value });
+        el.querySelector(".title").onfocus = () => select(id);
+        el.querySelector('[data-act="child"]').onclick = () => addChild(id);
+        el.querySelector('[data-act="root"]').onclick = () => set(id, { clearParent: true });
+      });
+    }
+    function findItem(id, nodes) {
+      for (const n of nodes) {
+        if (n.item.id === id) return n.item;
+        const x = findItem(id, n.children); if (x) return x;
+      }
+      return null;
+    }
+    function select(id) {
+      selected = id;
+      const item = findItem(id, board.roots);
+      document.getElementById("selid").textContent = id;
+      document.getElementById("seltitle").textContent = item ? item.title : "";
+      document.getElementById("body").value = item && item.body ? item.body : "";
+      api("api/items/" + encodeURIComponent(id) + "/why").then(w => {
+        document.getElementById("why").textContent = w.text || JSON.stringify(w, null, 2);
+      }).catch(() => {});
+    }
+    function cycleStatus(id) {
+      const item = findItem(id, board.roots); if (!item) return;
+      const i = cycle.indexOf(item.status);
+      set(id, { status: cycle[(i + 1) % cycle.length] });
+    }
+    function addChild(parentId) {
+      const title = prompt("Child title?");
+      if (!title) return;
+      const kind = document.getElementById("kind").value;
+      api("api/items", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, kind, parentId }) }).then(load);
+    }
+    function set(id, patch) {
+      api("api/items/" + encodeURIComponent(id), { method: "PATCH",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }).then(load);
+    }
+    function load() { return api("api/tree").then(b => { board = b; render(); }); }
+    document.getElementById("addroot").onclick = () => {
+      const title = document.getElementById("newtitle").value.trim();
+      if (!title) return;
+      api("api/items", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, kind: document.getElementById("kind").value }) })
+        .then(() => { document.getElementById("newtitle").value = ""; load(); });
+    };
+    document.getElementById("addnote").onclick = () => {
+      const text = document.getElementById("notetext").value.trim();
+      if (!text) return;
+      api("api/notes", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }) }).then(() => { document.getElementById("notetext").value = ""; load(); });
+    };
+    document.getElementById("savebody").onclick = () => {
+      if (!selected) return;
+      set(selected, { body: document.getElementById("body").value });
+    };
+    function esc(s) {
+      return String(s)
+        .replaceAll('&', '&' + 'amp;')
+        .replaceAll('<', '&' + 'lt;')
+        .replaceAll('>', '&' + 'gt;');
+    }
+    function escAttr(s) { return esc(s).replaceAll('"', '&' + 'quot;'); }
+    load().catch(e => document.getElementById("meta").textContent = e.message);
+  </script>
+</body>
+</html>
